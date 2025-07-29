@@ -11,7 +11,7 @@ import (
 )
 
 type downtimeServer struct {
-	store *store.DowntimeStore
+	store      *store.DowntimeStore
 }
 
 func (s *downtimeServer) ListDowntime(w http.ResponseWriter, r *http.Request) {
@@ -42,8 +42,33 @@ func (s *downtimeServer) ListDowntime(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *downtimeServer) ListDowntimeForCluster(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("ListCluster")
-	w.Write([]byte("ListCluster"))
+	clusterId := r.PathValue("clusterid")
+
+	from := r.URL.Query().Get("from")
+	to := r.URL.Query().Get("to")
+
+	ft, err := time.Parse(time.RFC3339, from)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	tt, err := time.Parse(time.RFC3339, to)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	ws, err := s.store.ListWindowsMatchingClusterFacts(r.Context(), ft, tt, clusterId)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(ws)
+
 }
 
 func (s *downtimeServer) CreateDowntime(w http.ResponseWriter, r *http.Request) {

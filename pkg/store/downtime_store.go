@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/vshn/vshn-sli-reporting/pkg/lieutenant"
 	"github.com/vshn/vshn-sli-reporting/pkg/types"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -26,14 +28,15 @@ type dbDowntimeWindow struct {
 
 type DowntimeStore struct {
 	db *sqlx.DB
+	lieutenant *lieutenant.Client
 }
 
-func NewDowntimeStore(dbpath string) (*DowntimeStore, error) {
+func NewDowntimeStore(dbpath string, lieutenant *lieutenant.Client) (*DowntimeStore, error) {
 	db, err := sqlx.Open("sqlite3", dbpath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open sqlite db: %w", err)
 	}
-	return &DowntimeStore{db: db}, nil
+	return &DowntimeStore{db: db, lieutenant: lieutenant}, nil
 }
 
 func (s *DowntimeStore) InitializeDB() error {
@@ -119,6 +122,42 @@ func (s *DowntimeStore) ListWindows(from time.Time, to time.Time) ([]*types.Down
 		converted[i] = c
 	}
 	return converted, nil
+}
+
+func (s *DowntimeStore) ListWindowsMatchingClusterFacts(ctx context.Context, from time.Time, to time.Time, clusterId string) ([]*types.DowntimeWindow, error) {
+	facts, err := s.lieutenant.GetClusterFacts(ctx, clusterId)
+	if err != nil {
+		return nil, fmt.Errorf("could not list downtime windows matching cluster facts: %w", err)
+	}
+	windows, err := s.ListWindows(from, to)
+	if err != nil {
+		return nil, err
+	}
+
+	matchedWindows := make([]*types.DowntimeWindow, 0)
+
+	for _, w := range windows {
+		if windowMatchesClusterFacts(w, facts) {
+			matchedWindows = append(matchedWindows, w)
+		}
+	}
+
+	return matchedWindows, nil
+}
+
+func windowMatchesClusterFacts (w *types.DowntimeWindow, facts map[string]string) bool {
+	for _, a := range w.Affects {
+		matches := true
+		for k, v := range a {
+			fact, ok := facts[k]
+			matches = matches && ok && v == fact
+		}
+		if matches {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (s *DowntimeStore) UpdateWindow(w *types.DowntimeWindow) (*types.DowntimeWindow, error) {

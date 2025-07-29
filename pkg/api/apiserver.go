@@ -38,7 +38,6 @@ func (s *ApiServer) Start() error {
 	return http.ListenAndServe(hostport, s.basicAuth(s.mux))
 }
 
-
 func (s *ApiServer) basicAuth(next http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		username, password, ok := r.BasicAuth()

@@ -19,7 +19,7 @@ var (
 		Short: "Initialize database if it does not yet exist",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Println("Initializing database...")
-			var store, err = store.NewDowntimeStore(dbPath)
+			var store, err = store.NewDowntimeStore(dbPath, nil)
 			if err != nil {
 				log.Fatal(err)
 				return
