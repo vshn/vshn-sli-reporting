@@ -10,7 +10,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type Client struct {
+type Client interface {
+	GetClusterFacts(context.Context, string) (map[string]string, error)
+}
+
+type client_impl struct {
 	Client    client.Client
 	Namespace string
 }
@@ -21,7 +25,7 @@ type Config struct {
 	Namespace string
 }
 
-func NewLieutenantClient(config Config) (*Client, error) {
+func NewLieutenantClient(config Config) (Client, error) {
 	scheme := runtime.NewScheme()
 	err := lieutenantv1alpha1.AddToScheme(scheme)
 	if err != nil {
@@ -38,13 +42,13 @@ func NewLieutenantClient(config Config) (*Client, error) {
 	if err != nil {
 		panic(err)
 	}
-	return &Client{
+	return &client_impl{
 		Client:    c,
 		Namespace: config.Namespace,
 	}, nil
 }
 
-func (l *Client) GetClusterFacts(ctx context.Context, cluster_id string) (map[string]string, error) {
+func (l *client_impl) GetClusterFacts(ctx context.Context, cluster_id string) (map[string]string, error) {
 	var cluster lieutenantv1alpha1.Cluster
 
 	nsn := client.ObjectKey{

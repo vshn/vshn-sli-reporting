@@ -28,10 +28,10 @@ type dbDowntimeWindow struct {
 
 type DowntimeStore struct {
 	db *sqlx.DB
-	lieutenant *lieutenant.Client
+	lieutenant lieutenant.Client
 }
 
-func NewDowntimeStore(dbpath string, lieutenant *lieutenant.Client) (*DowntimeStore, error) {
+func NewDowntimeStore(dbpath string, lieutenant lieutenant.Client) (*DowntimeStore, error) {
 	db, err := sqlx.Open("sqlite3", dbpath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open sqlite db: %w", err)
