@@ -18,7 +18,7 @@ func (m *mockLieutenant) GetClusterFacts(ctx context.Context, clusterID string) 
 	return m.ReturnVal, nil
 }
 
-func setup() *DowntimeStore {
+func setup() DowntimeStore {
 	time.Local = time.UTC
 	store, err := NewDowntimeStore(":memory:", &mockLieutenant{})
 	if err != nil {
@@ -27,7 +27,7 @@ func setup() *DowntimeStore {
 	return store
 }
 
-func setupAndSeed(facts map[string]string) *DowntimeStore {
+func setupAndSeed(facts map[string]string) DowntimeStore {
 	time.Local = time.UTC
 	store, err := NewDowntimeStore(":memory:", &mockLieutenant{ReturnVal: facts})
 	if err != nil {
@@ -185,11 +185,12 @@ func TestStoreNewWindow(t *testing.T) {
 
 	assert.NotEmpty(t, w.ID)
 
-	w2, err := store.getWindowById(w.ID)
+	w2s, err := store.ListWindows(time1, time2)
 	assert.NoError(t, err)
-	wc, err := convertFromDbStruct(&w2)
+	assert.Equal(t, 1, len(w2s))
+	w2 := w2s[0]
 	assert.NoError(t, err)
-	assert.Equal(t, w, wc)
+	assert.Equal(t, w, w2)
 }
 
 func TestStoreNewWindowInvalid(t *testing.T) {
@@ -285,15 +286,12 @@ func TestUpdateWindow(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	w3, err := store.getWindowById(w.ID)
+	w3s, err := store.ListWindows(time1, time2)
 	assert.NoError(t, err)
-	wc, err := convertFromDbStruct(&w3)
+	assert.Equal(t, 1, len(w3s))
+	w3 := w3s[0]
 	assert.NoError(t, err)
-	assert.Equal(t, w2, wc)
-
-	windows, err := store.ListWindows(time1, time2)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, len(windows))
+	assert.Equal(t, w2, w3)
 
 }
 

@@ -20,10 +20,10 @@ type ApiServerConfig struct {
 type ApiServer struct {
 	config ApiServerConfig
 	mux    *http.ServeMux
-	store  *store.DowntimeStore
+	store  store.DowntimeStore
 }
 
-func NewApiServer(config ApiServerConfig, store *store.DowntimeStore) ApiServer {
+func NewApiServer(config ApiServerConfig, store store.DowntimeStore) ApiServer {
 	var mux = http.NewServeMux()
 	downtime.Setup(mux, store)
 	return ApiServer{

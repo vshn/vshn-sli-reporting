@@ -11,7 +11,7 @@ import (
 )
 
 type downtimeServer struct {
-	store *store.DowntimeStore
+	store store.DowntimeStore
 }
 
 func (s *downtimeServer) ListDowntime(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +37,7 @@ func (s *downtimeServer) ListDowntime(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(ws)
 }
 
@@ -66,7 +66,7 @@ func (s *downtimeServer) ListDowntimeForCluster(w http.ResponseWriter, r *http.R
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(ws)
 
 }
@@ -109,7 +109,7 @@ func (s *downtimeServer) UpdateDowntime(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(ws)
 }
 
@@ -131,11 +131,11 @@ func (s *downtimeServer) PatchDowntime(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(ws)
 }
 
-func Setup(mux *http.ServeMux, store *store.DowntimeStore) {
+func Setup(mux *http.ServeMux, store store.DowntimeStore) {
 	s := downtimeServer{store}
 	fmt.Println("Registering endpoints")
 	mux.HandleFunc("GET /downtime", s.ListDowntime)
