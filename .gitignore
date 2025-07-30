@@ -1,0 +1,22 @@
+# Goreleaser
+dist/
+.github/release-notes.md
+
+# Build
+vshn-sli-reporting
+*.out
+
+# Docs
+.cache/
+.public/
+node_modules/
+
+# IDEs
+.vscode/
+
+# Generated Manifests
+manifests/grafana/grafana.yaml
+
+
+# Database
+data.db
