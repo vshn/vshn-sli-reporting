@@ -31,6 +31,7 @@ func NewApiServer(config ApiServerConfig, store store.DowntimeStore) ApiServer {
 		mux:    mux,
 		store:  store,
 	}
+
 }
 
 func (s *ApiServer) Start() error {

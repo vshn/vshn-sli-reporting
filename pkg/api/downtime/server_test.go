@@ -1,9 +1,7 @@
 package downtime
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,67 +9,12 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/vshn/vshn-sli-reporting/pkg/store/mock"
 	"github.com/vshn/vshn-sli-reporting/pkg/types"
 )
 
-type mockDowntimeStore struct {
-	DoError         bool
-	ReturnValue     *types.DowntimeWindow
-	LastCall        string
-	LastCallFrom    time.Time
-	LastCallTo      time.Time
-	LastCallCluster string
-}
-
-func (m *mockDowntimeStore) InitializeDB() error {
-	return nil
-}
-func (m *mockDowntimeStore) CloseDB() error {
-	return nil
-}
-func (m *mockDowntimeStore) StoreNewWindow(w *types.DowntimeWindow) (*types.DowntimeWindow, error) {
-	m.LastCall = "create"
-	if m.DoError {
-		return nil, errors.New("some error")
-	}
-	return w, nil
-}
-func (m *mockDowntimeStore) ListWindows(from time.Time, to time.Time) ([]*types.DowntimeWindow, error) {
-	m.LastCall = "list"
-	if m.DoError {
-		return nil, errors.New("some error")
-	}
-	m.LastCallFrom = from
-	m.LastCallTo = to
-	return []*types.DowntimeWindow{m.ReturnValue}, nil
-}
-func (m *mockDowntimeStore) ListWindowsMatchingClusterFacts(ctx context.Context, from time.Time, to time.Time, clusterId string) ([]*types.DowntimeWindow, error) {
-	m.LastCall = "listcluster"
-	if m.DoError {
-		return nil, errors.New("some error")
-	}
-	m.LastCallFrom = from
-	m.LastCallTo = to
-	m.LastCallCluster = clusterId
-	return []*types.DowntimeWindow{m.ReturnValue}, nil
-}
-func (m *mockDowntimeStore) UpdateWindow(w *types.DowntimeWindow) (*types.DowntimeWindow, error) {
-	m.LastCall = "update"
-	if m.DoError {
-		return nil, errors.New("some error")
-	}
-	return w, nil
-}
-func (m *mockDowntimeStore) PatchWindow(w *types.DowntimeWindow) (*types.DowntimeWindow, error) {
-	m.LastCall = "patch"
-	if m.DoError {
-		return nil, errors.New("some error")
-	}
-	return w, nil
-}
-
-func setup(rv *types.DowntimeWindow) (*http.ServeMux, *mockDowntimeStore) {
-	store := &mockDowntimeStore{
+func setup(rv *types.DowntimeWindow) (*http.ServeMux, *mock.MockDowntimeStore) {
+	store := &mock.MockDowntimeStore{
 		ReturnValue: rv,
 	}
 	mux := http.NewServeMux()
@@ -80,7 +23,7 @@ func setup(rv *types.DowntimeWindow) (*http.ServeMux, *mockDowntimeStore) {
 	return mux, store
 }
 
-func setupError(rv *types.DowntimeWindow) (*http.ServeMux, *mockDowntimeStore) {
+func setupError(rv *types.DowntimeWindow) (*http.ServeMux, *mock.MockDowntimeStore) {
 	mux, store := setup(rv)
 	store.DoError = true
 	return mux, store
