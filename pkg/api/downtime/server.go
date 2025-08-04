@@ -20,19 +20,19 @@ func (s *downtimeServer) ListDowntime(w http.ResponseWriter, r *http.Request) {
 
 	ft, err := time.Parse(time.RFC3339, from)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Error: Could not parse `from` time (%s)", err.Error()), http.StatusBadRequest)
 		return
 	}
 	tt, err := time.Parse(time.RFC3339, to)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Error: Could not parse `to` time (%s)", err.Error()), http.StatusBadRequest)
 		return
 	}
 
 	ws, err := s.store.ListWindows(ft, tt)
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Error: Could not list downtime windows (%s)", err.Error()), http.StatusBadRequest)
 		return
 	}
 
@@ -49,19 +49,19 @@ func (s *downtimeServer) ListDowntimeForCluster(w http.ResponseWriter, r *http.R
 
 	ft, err := time.Parse(time.RFC3339, from)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Error: Could not parse `from` time (%s)", err.Error()), http.StatusBadRequest)
 		return
 	}
 	tt, err := time.Parse(time.RFC3339, to)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Error: Could not parse `to` time (%s)", err.Error()), http.StatusBadRequest)
 		return
 	}
 
 	ws, err := s.store.ListWindowsMatchingClusterFacts(r.Context(), ft, tt, clusterId)
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Error: Could not list downtime windows (%s)", err.Error()), http.StatusBadRequest)
 		return
 	}
 
@@ -75,7 +75,7 @@ func (s *downtimeServer) CreateDowntime(w http.ResponseWriter, r *http.Request) 
 	window := types.DowntimeWindow{}
 	err := json.NewDecoder(r.Body).Decode(&window)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Error: Invalid downtime window (%s)", err.Error()), http.StatusBadRequest)
 		return
 	}
 
@@ -83,6 +83,7 @@ func (s *downtimeServer) CreateDowntime(w http.ResponseWriter, r *http.Request) 
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Error: Could not store downtime window (%s)", err.Error()), http.StatusBadRequest)
 		return
 	}
 
@@ -95,7 +96,7 @@ func (s *downtimeServer) UpdateDowntime(w http.ResponseWriter, r *http.Request) 
 	window := types.DowntimeWindow{}
 	err := json.NewDecoder(r.Body).Decode(&window)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Error: Invalid downtime window (%s)", err.Error()), http.StatusBadRequest)
 		return
 	}
 
@@ -104,7 +105,7 @@ func (s *downtimeServer) UpdateDowntime(w http.ResponseWriter, r *http.Request) 
 	ws, err := s.store.UpdateWindow(&window)
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Error: Could not update downtime window (%s)", err.Error()), http.StatusBadRequest)
 		return
 	}
 
@@ -117,7 +118,7 @@ func (s *downtimeServer) PatchDowntime(w http.ResponseWriter, r *http.Request) {
 	window := types.DowntimeWindow{}
 	err := json.NewDecoder(r.Body).Decode(&window)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Error: Invalid downtime window (%s)", err.Error()), http.StatusBadRequest)
 		return
 	}
 
@@ -126,7 +127,7 @@ func (s *downtimeServer) PatchDowntime(w http.ResponseWriter, r *http.Request) {
 	ws, err := s.store.PatchWindow(&window)
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Error: Could not patch downtime window (%s)", err.Error()), http.StatusBadRequest)
 		return
 	}
 

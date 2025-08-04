@@ -8,7 +8,6 @@ import (
 	"github.com/vshn/vshn-sli-reporting/pkg/types"
 )
 
-
 type MockDowntimeStore struct {
 	DoError         bool
 	ReturnValue     *types.DowntimeWindow

@@ -12,12 +12,11 @@ import (
 	"github.com/vshn/vshn-sli-reporting/pkg/types"
 )
 
-
-var config = ApiServerConfig {
+var config = ApiServerConfig{
 	AuthUser: "admin",
 	AuthPass: "pass",
-	Port: 8080,
-	Host: "localhost",
+	Port:     8080,
+	Host:     "localhost",
 }
 
 func setup(rv *types.DowntimeWindow) (*ApiServer, *mock.MockDowntimeStore) {
