@@ -1,17 +1,27 @@
 package downtime
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/vshn/vshn-sli-reporting/pkg/store"
 	"github.com/vshn/vshn-sli-reporting/pkg/types"
 )
 
 type downtimeServer struct {
-	store store.DowntimeStore
+	store DowntimeStore
+}
+
+type DowntimeStore interface {
+	InitializeDB() error
+	CloseDB() error
+	StoreNewWindow(*types.DowntimeWindow) (*types.DowntimeWindow, error)
+	ListWindows(from time.Time, to time.Time) ([]*types.DowntimeWindow, error)
+	ListWindowsMatchingClusterFacts(ctx context.Context, from time.Time, to time.Time, clusterId string) ([]*types.DowntimeWindow, error)
+	UpdateWindow(*types.DowntimeWindow) (*types.DowntimeWindow, error)
+	PatchWindow(*types.DowntimeWindow) (*types.DowntimeWindow, error)
 }
 
 func (s *downtimeServer) ListDowntime(w http.ResponseWriter, r *http.Request) {
@@ -136,7 +146,7 @@ func (s *downtimeServer) PatchDowntime(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(ws)
 }
 
-func Setup(mux *http.ServeMux, store store.DowntimeStore) {
+func Setup(mux *http.ServeMux, store DowntimeStore) {
 	s := downtimeServer{store}
 	fmt.Println("Registering endpoints")
 	mux.HandleFunc("GET /downtime", s.ListDowntime)

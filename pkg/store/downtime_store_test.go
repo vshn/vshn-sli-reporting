@@ -18,7 +18,7 @@ func (m *mockLieutenant) GetClusterFacts(ctx context.Context, clusterID string) 
 	return m.ReturnVal, nil
 }
 
-func setup() DowntimeStore {
+func setup() *downtimeStore {
 	time.Local = time.UTC
 	store, err := NewDowntimeStore(":memory:", &mockLieutenant{})
 	if err != nil {
@@ -27,7 +27,7 @@ func setup() DowntimeStore {
 	return store
 }
 
-func setupAndSeed(facts map[string]string) DowntimeStore {
+func setupAndSeed(facts map[string]string) *downtimeStore {
 	time.Local = time.UTC
 	store, err := NewDowntimeStore(":memory:", &mockLieutenant{ReturnVal: facts})
 	if err != nil {

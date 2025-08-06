@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/vshn/vshn-sli-reporting/pkg/lieutenant"
 	"github.com/vshn/vshn-sli-reporting/pkg/types"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -26,30 +25,24 @@ type dbDowntimeWindow struct {
 	Affects      string `db:"affects"`
 }
 
-type downtimeStoreImpl struct {
+type downtimeStore struct {
 	db         *sqlx.DB
-	lieutenant lieutenant.Client
+	lieutenant Client
 }
 
-type DowntimeStore interface {
-	InitializeDB() error
-	CloseDB() error
-	StoreNewWindow(*types.DowntimeWindow) (*types.DowntimeWindow, error)
-	ListWindows(from time.Time, to time.Time) ([]*types.DowntimeWindow, error)
-	ListWindowsMatchingClusterFacts(ctx context.Context, from time.Time, to time.Time, clusterId string) ([]*types.DowntimeWindow, error)
-	UpdateWindow(*types.DowntimeWindow) (*types.DowntimeWindow, error)
-	PatchWindow(*types.DowntimeWindow) (*types.DowntimeWindow, error)
+type Client interface {
+	GetClusterFacts(context.Context, string) (map[string]string, error)
 }
 
-func NewDowntimeStore(dbpath string, lieutenant lieutenant.Client) (DowntimeStore, error) {
+func NewDowntimeStore(dbpath string, lieutenant Client) (*downtimeStore, error) {
 	db, err := sqlx.Open("sqlite3", dbpath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open sqlite db: %w", err)
 	}
-	return &downtimeStoreImpl{db: db, lieutenant: lieutenant}, nil
+	return &downtimeStore{db: db, lieutenant: lieutenant}, nil
 }
 
-func (s *downtimeStoreImpl) InitializeDB() error {
+func (s *downtimeStore) InitializeDB() error {
 	createSQL := `CREATE TABLE IF NOT EXISTS downtime (
 	  "id" TEXT PRIMARY KEY,
 	  "start_time" INTEGER NOT NULL,
@@ -72,11 +65,11 @@ func (s *downtimeStoreImpl) InitializeDB() error {
 	return nil
 }
 
-func (s *downtimeStoreImpl) CloseDB() error {
+func (s *downtimeStore) CloseDB() error {
 	return s.db.Close()
 }
 
-func (s *downtimeStoreImpl) StoreNewWindow(w *types.DowntimeWindow) (*types.DowntimeWindow, error) {
+func (s *downtimeStore) StoreNewWindow(w *types.DowntimeWindow) (*types.DowntimeWindow, error) {
 	q := `INSERT INTO downtime (id, start_time, end_time, title, description, external_id, external_link, affects) VALUES (:id, :start_time, :end_time, :title, :description, :external_id, :external_link, :affects)`
 	st, err := convertToDbStruct(w)
 
@@ -112,7 +105,7 @@ func (s *downtimeStoreImpl) StoreNewWindow(w *types.DowntimeWindow) (*types.Down
 	return rv, nil
 }
 
-func (s *downtimeStoreImpl) ListWindows(from time.Time, to time.Time) ([]*types.DowntimeWindow, error) {
+func (s *downtimeStore) ListWindows(from time.Time, to time.Time) ([]*types.DowntimeWindow, error) {
 	fromUnix := from.Unix()
 	toUnix := to.Unix()
 
@@ -134,7 +127,7 @@ func (s *downtimeStoreImpl) ListWindows(from time.Time, to time.Time) ([]*types.
 	return converted, nil
 }
 
-func (s *downtimeStoreImpl) ListWindowsMatchingClusterFacts(ctx context.Context, from time.Time, to time.Time, clusterId string) ([]*types.DowntimeWindow, error) {
+func (s *downtimeStore) ListWindowsMatchingClusterFacts(ctx context.Context, from time.Time, to time.Time, clusterId string) ([]*types.DowntimeWindow, error) {
 	facts, err := s.lieutenant.GetClusterFacts(ctx, clusterId)
 	if err != nil {
 		return nil, fmt.Errorf("could not list downtime windows matching cluster facts: %w", err)
@@ -170,7 +163,7 @@ func windowMatchesClusterFacts(w *types.DowntimeWindow, facts map[string]string)
 	return false
 }
 
-func (s *downtimeStoreImpl) UpdateWindow(w *types.DowntimeWindow) (*types.DowntimeWindow, error) {
+func (s *downtimeStore) UpdateWindow(w *types.DowntimeWindow) (*types.DowntimeWindow, error) {
 	st, err := convertToDbStruct(w)
 	if err != nil {
 		return nil, fmt.Errorf("unable to convert downtime window for store: %w", err)
@@ -193,7 +186,7 @@ func (s *downtimeStoreImpl) UpdateWindow(w *types.DowntimeWindow) (*types.Downti
 	return s.updateWindow(&st)
 }
 
-func (s *downtimeStoreImpl) PatchWindow(w *types.DowntimeWindow) (*types.DowntimeWindow, error) {
+func (s *downtimeStore) PatchWindow(w *types.DowntimeWindow) (*types.DowntimeWindow, error) {
 	existing, err := s.getWindowById(w.ID)
 	if err != nil {
 		return nil, fmt.Errorf("unable to find existing record for patch: %w", err)
@@ -220,7 +213,7 @@ func (s *downtimeStoreImpl) PatchWindow(w *types.DowntimeWindow) (*types.Downtim
 	return s.updateWindow(&st)
 }
 
-func (s *downtimeStoreImpl) validate(w *dbDowntimeWindow) error {
+func (s *downtimeStore) validate(w *dbDowntimeWindow) error {
 	if w.StartTime <= 0 {
 		return errors.New("validation error: start time must be set")
 	}
@@ -230,7 +223,7 @@ func (s *downtimeStoreImpl) validate(w *dbDowntimeWindow) error {
 	return nil
 }
 
-func (s *downtimeStoreImpl) updateWindow(w *dbDowntimeWindow) (*types.DowntimeWindow, error) {
+func (s *downtimeStore) updateWindow(w *dbDowntimeWindow) (*types.DowntimeWindow, error) {
 	q := `UPDATE downtime SET id = :id, start_time = :start_time,  end_time = :end_time, title = :title, description = :description, external_id = :external_id, external_link = :external_link, affects = :affects WHERE id == :id`
 	_, err := s.db.NamedExec(q, w)
 	if err != nil {
@@ -245,7 +238,7 @@ func (s *downtimeStoreImpl) updateWindow(w *dbDowntimeWindow) (*types.DowntimeWi
 	return rv, nil
 }
 
-func (s *downtimeStoreImpl) getWindowById(id string) (dbDowntimeWindow, error) {
+func (s *downtimeStore) getWindowById(id string) (dbDowntimeWindow, error) {
 	result := dbDowntimeWindow{}
 	err := s.db.Get(&result, "SELECT * FROM downtime WHERE id == ?", id)
 	if err != nil {
@@ -254,7 +247,7 @@ func (s *downtimeStoreImpl) getWindowById(id string) (dbDowntimeWindow, error) {
 	return result, nil
 }
 
-func (s *downtimeStoreImpl) idFromExternalID(externalID string) (string, error) {
+func (s *downtimeStore) idFromExternalID(externalID string) (string, error) {
 	if len(externalID) == 0 {
 		//NOTE(aa): empty externalIDs are not considered
 		return "", nil

@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/vshn/vshn-sli-reporting/pkg/api/downtime"
-	"github.com/vshn/vshn-sli-reporting/pkg/store"
 )
 
 type ApiServerConfig struct {
@@ -20,10 +19,10 @@ type ApiServerConfig struct {
 type ApiServer struct {
 	config ApiServerConfig
 	mux    *http.ServeMux
-	store  store.DowntimeStore
+	store  downtime.DowntimeStore
 }
 
-func NewApiServer(config ApiServerConfig, store store.DowntimeStore) ApiServer {
+func NewApiServer(config ApiServerConfig, store downtime.DowntimeStore) ApiServer {
 	var mux = http.NewServeMux()
 	downtime.Setup(mux, store)
 	return ApiServer{
