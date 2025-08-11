@@ -1,8 +1,12 @@
 package cmd
 
 import (
-	"fmt"
+	"context"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/vshn/vshn-sli-reporting/pkg/api"
@@ -32,11 +36,28 @@ var (
 			}
 			defer store.CloseDB()
 			var server = api.NewApiServer(serverConfig, store)
-			fmt.Println("Starting API server ...")
-			err = server.Start()
-			if err != nil {
-				log.Fatal(err)
+			log.Println("Starting API server ...")
+
+			go func() {
+				err = server.Start()
+				if err != nil {
+					log.Fatal(err)
+				}
+				log.Println("Stopped serving new connections.")
+			}()
+
+			sigChan := make(chan os.Signal, 1)
+			signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+			<-sigChan
+
+			shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
+			defer shutdownRelease()
+
+			if err := server.Stop(shutdownCtx); err != nil {
+				log.Fatalf("HTTP shutdown error: %v", err)
 			}
+			log.Println("Graceful shutdown complete.")
+
 		},
 	}
 )

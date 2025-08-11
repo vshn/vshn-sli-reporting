@@ -1,8 +1,10 @@
 package api
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/subtle"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -20,6 +22,7 @@ type ApiServer struct {
 	config ApiServerConfig
 	mux    *http.ServeMux
 	store  downtime.DowntimeStore
+	server *http.Server
 }
 
 func NewApiServer(config ApiServerConfig, store downtime.DowntimeStore) ApiServer {
@@ -35,7 +38,20 @@ func NewApiServer(config ApiServerConfig, store downtime.DowntimeStore) ApiServe
 
 func (s *ApiServer) Start() error {
 	var hostport = fmt.Sprintf("%s:%d", s.config.Host, s.config.Port)
-	return http.ListenAndServe(hostport, s.basicAuth(s.mux))
+	var server = http.Server{
+		Addr:    hostport,
+		Handler: s.basicAuth(s.mux),
+	}
+	s.server = &server
+	err := server.ListenAndServe()
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
+	return err
+}
+
+func (s *ApiServer) Stop(ctx context.Context) error {
+	return s.server.Shutdown(ctx)
 }
 
 func (s *ApiServer) basicAuth(next http.Handler) http.HandlerFunc {

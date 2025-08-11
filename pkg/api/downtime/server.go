@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -148,7 +149,7 @@ func (s *downtimeServer) PatchDowntime(w http.ResponseWriter, r *http.Request) {
 
 func Setup(mux *http.ServeMux, store DowntimeStore) {
 	s := downtimeServer{store}
-	fmt.Println("Registering endpoints")
+	log.Println("Registering endpoints")
 	mux.HandleFunc("GET /downtime", s.ListDowntime)
 	mux.HandleFunc("GET /downtime/cluster/{clusterid}", s.ListDowntimeForCluster)
 	mux.HandleFunc("POST /downtime", s.CreateDowntime)
