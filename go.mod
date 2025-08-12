@@ -7,7 +7,7 @@ toolchain go1.24.3
 require (
 	github.com/google/uuid v1.6.0
 	github.com/jmoiron/sqlx v1.4.0
-	github.com/mattn/go-sqlite3 v1.14.28
+	github.com/mattn/go-sqlite3 v1.14.31
 	github.com/projectsyn/lieutenant-operator v1.11.8
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
