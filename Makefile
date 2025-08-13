@@ -24,7 +24,7 @@ help: ## Show this help
 build: build-bin build-docker ## All-in-one build
 
 .PHONY: build-bin
-build-bin: export CGO_ENABLED = 1
+build-bin: export CGO_ENABLED = 0
 build-bin: fmt vet ## Build binary
 	@go build -o $(BIN_FILENAME) github.com/vshn/vshn-sli-reporting
 
