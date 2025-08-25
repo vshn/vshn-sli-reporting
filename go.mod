@@ -10,7 +10,7 @@ require (
 	github.com/ncruces/go-sqlite3 v0.27.1
 	github.com/projectsyn/lieutenant-operator v1.11.8
 	github.com/spf13/cobra v1.9.1
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.0
 	k8s.io/apimachinery v0.33.3
 	k8s.io/client-go v0.33.3
 	sigs.k8s.io/controller-runtime v0.21.0
