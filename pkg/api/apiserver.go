@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/vshn/vshn-sli-reporting/pkg/api/downtime"
+	"github.com/vshn/vshn-sli-reporting/pkg/api/query"
 )
 
 type ApiServerConfig struct {
@@ -25,15 +26,15 @@ type ApiServer struct {
 	server *http.Server
 }
 
-func NewApiServer(config ApiServerConfig, store downtime.DowntimeStore) ApiServer {
+func NewApiServer(config ApiServerConfig, store downtime.DowntimeStore, prom query.PrometheusQuerier) ApiServer {
 	var mux = http.NewServeMux()
 	downtime.Setup(mux, store)
+	query.Setup(mux, store, prom)
 	return ApiServer{
 		config: config,
 		mux:    mux,
 		store:  store,
 	}
-
 }
 
 func (s *ApiServer) Start() error {

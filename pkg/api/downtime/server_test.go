@@ -15,7 +15,7 @@ import (
 
 func setup(rv types.DowntimeWindow) (*http.ServeMux, *mock.MockDowntimeStore) {
 	store := &mock.MockDowntimeStore{
-		ReturnValue: rv,
+		ReturnValues: []types.DowntimeWindow{rv},
 	}
 	mux := http.NewServeMux()
 

@@ -1,15 +1,19 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/vshn/vshn-sli-reporting/pkg/store/mock"
 	"github.com/vshn/vshn-sli-reporting/pkg/types"
+
+	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 )
 
 var config = ApiServerConfig{
@@ -21,10 +25,10 @@ var config = ApiServerConfig{
 
 func setup(rv types.DowntimeWindow) (*ApiServer, *mock.MockDowntimeStore) {
 	store := &mock.MockDowntimeStore{
-		ReturnValue: rv,
+		ReturnValues: []types.DowntimeWindow{rv},
 	}
 
-	server := NewApiServer(config, store)
+	server := NewApiServer(config, store, noopPrometheus{})
 	return &server, store
 }
 
@@ -89,4 +93,14 @@ func TestBasicAuthFailsIfInvalidCredentials(t *testing.T) {
 	defer res.Body.Close()
 
 	assert.Equal(t, "401 Unauthorized", res.Status)
+}
+
+type noopPrometheus struct{}
+
+func (m noopPrometheus) Query(ctx context.Context, query string, ts time.Time, opts ...prometheusv1.Option) (model.Value, prometheusv1.Warnings, error) {
+	return model.Vector{}, nil, nil
+}
+
+func (m noopPrometheus) QueryRange(ctx context.Context, query string, r prometheusv1.Range, opts ...prometheusv1.Option) (model.Value, prometheusv1.Warnings, error) {
+	return model.Matrix{}, nil, nil
 }

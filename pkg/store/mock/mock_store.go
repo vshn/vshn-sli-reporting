@@ -3,6 +3,7 @@ package mock
 import (
 	"context"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/vshn/vshn-sli-reporting/pkg/types"
@@ -10,7 +11,7 @@ import (
 
 type MockDowntimeStore struct {
 	DoError         bool
-	ReturnValue     types.DowntimeWindow
+	ReturnValues    []types.DowntimeWindow
 	LastCall        string
 	LastCallFrom    time.Time
 	LastCallTo      time.Time
@@ -37,7 +38,7 @@ func (m *MockDowntimeStore) ListWindows(from time.Time, to time.Time) ([]types.D
 	}
 	m.LastCallFrom = from
 	m.LastCallTo = to
-	return []types.DowntimeWindow{m.ReturnValue}, nil
+	return slices.Clone(m.ReturnValues), nil
 }
 func (m *MockDowntimeStore) ListWindowsMatchingClusterFacts(ctx context.Context, from time.Time, to time.Time, clusterId string) ([]types.DowntimeWindow, error) {
 	m.LastCall = "listcluster"
@@ -47,7 +48,7 @@ func (m *MockDowntimeStore) ListWindowsMatchingClusterFacts(ctx context.Context,
 	m.LastCallFrom = from
 	m.LastCallTo = to
 	m.LastCallCluster = clusterId
-	return []types.DowntimeWindow{m.ReturnValue}, nil
+	return slices.Clone(m.ReturnValues), nil
 }
 func (m *MockDowntimeStore) UpdateWindow(w types.DowntimeWindow) (types.DowntimeWindow, error) {
 	m.LastCall = "update"
