@@ -13,7 +13,7 @@ import (
 	"github.com/vshn/vshn-sli-reporting/pkg/types"
 )
 
-func setup(rv *types.DowntimeWindow) (*http.ServeMux, *mock.MockDowntimeStore) {
+func setup(rv types.DowntimeWindow) (*http.ServeMux, *mock.MockDowntimeStore) {
 	store := &mock.MockDowntimeStore{
 		ReturnValue: rv,
 	}
@@ -23,14 +23,14 @@ func setup(rv *types.DowntimeWindow) (*http.ServeMux, *mock.MockDowntimeStore) {
 	return mux, store
 }
 
-func setupError(rv *types.DowntimeWindow) (*http.ServeMux, *mock.MockDowntimeStore) {
+func setupError(rv types.DowntimeWindow) (*http.ServeMux, *mock.MockDowntimeStore) {
 	mux, store := setup(rv)
 	store.DoError = true
 	return mux, store
 }
 
 func TestListDowntime(t *testing.T) {
-	mux, mock := setup(&types.DowntimeWindow{
+	mux, mock := setup(types.DowntimeWindow{
 		Title: "Test1",
 	})
 
@@ -59,7 +59,7 @@ func TestListDowntime(t *testing.T) {
 }
 
 func TestListDowntimeError(t *testing.T) {
-	mux, mock := setupError(&types.DowntimeWindow{})
+	mux, mock := setupError(types.DowntimeWindow{})
 	req := httptest.NewRequest(http.MethodGet, "/downtime?from=2020-01-01T00:00:00Z&to=2020-02-02T00:00:00Z", nil)
 	w := httptest.NewRecorder()
 
@@ -73,7 +73,7 @@ func TestListDowntimeError(t *testing.T) {
 }
 
 func TestListDowntimeParseError(t *testing.T) {
-	mux, mock := setup(&types.DowntimeWindow{})
+	mux, mock := setup(types.DowntimeWindow{})
 	req := httptest.NewRequest(http.MethodGet, "/downtime?from=2020-bogsu", nil)
 	w := httptest.NewRecorder()
 
@@ -109,7 +109,7 @@ func TestListDowntimeParseError(t *testing.T) {
 }
 
 func TestListDowntimeByCluster(t *testing.T) {
-	mux, mock := setup(&types.DowntimeWindow{
+	mux, mock := setup(types.DowntimeWindow{
 		Title: "Test1",
 	})
 
@@ -139,7 +139,7 @@ func TestListDowntimeByCluster(t *testing.T) {
 }
 
 func TestListDowntimeByClusterError(t *testing.T) {
-	mux, mock := setupError(&types.DowntimeWindow{})
+	mux, mock := setupError(types.DowntimeWindow{})
 	req := httptest.NewRequest(http.MethodGet, "/downtime/cluster/c-sdf?from=2020-01-01T00:00:00Z&to=2020-02-02T00:00:00Z", nil)
 	w := httptest.NewRecorder()
 
@@ -153,7 +153,7 @@ func TestListDowntimeByClusterError(t *testing.T) {
 }
 
 func TestListDowntimeByClusterParseError(t *testing.T) {
-	mux, mock := setup(&types.DowntimeWindow{})
+	mux, mock := setup(types.DowntimeWindow{})
 	req := httptest.NewRequest(http.MethodGet, "/downtime/cluster/c-sdf?from=2020-bogsu", nil)
 	w := httptest.NewRecorder()
 
@@ -189,7 +189,7 @@ func TestListDowntimeByClusterParseError(t *testing.T) {
 }
 
 func TestCreateUpdatePatchDowntime(t *testing.T) {
-	mux, mock := setup(&types.DowntimeWindow{})
+	mux, mock := setup(types.DowntimeWindow{})
 
 	jsonstr, err := json.Marshal(types.DowntimeWindow{
 		Title: "Test1",
@@ -251,7 +251,7 @@ func TestCreateUpdatePatchDowntime(t *testing.T) {
 }
 
 func TestCreateUpdatePatchDowntimeErrors(t *testing.T) {
-	mux, mock := setupError(&types.DowntimeWindow{})
+	mux, mock := setupError(types.DowntimeWindow{})
 
 	jsonstr, err := json.Marshal(types.DowntimeWindow{
 		Title: "Test1",
@@ -294,7 +294,7 @@ func TestCreateUpdatePatchDowntimeErrors(t *testing.T) {
 }
 
 func TestCreateUpdatePatchDowntimeParseErrors(t *testing.T) {
-	mux, mock := setup(&types.DowntimeWindow{})
+	mux, mock := setup(types.DowntimeWindow{})
 
 	// Create
 	req := httptest.NewRequest(http.MethodPost, "/downtime", strings.NewReader("NotValidJson[]"))

@@ -19,7 +19,7 @@ var config = ApiServerConfig{
 	Host:     "localhost",
 }
 
-func setup(rv *types.DowntimeWindow) (*ApiServer, *mock.MockDowntimeStore) {
+func setup(rv types.DowntimeWindow) (*ApiServer, *mock.MockDowntimeStore) {
 	store := &mock.MockDowntimeStore{
 		ReturnValue: rv,
 	}
@@ -29,7 +29,7 @@ func setup(rv *types.DowntimeWindow) (*ApiServer, *mock.MockDowntimeStore) {
 }
 
 func TestBasicAuthSucceeds(t *testing.T) {
-	serv, mock := setup(&types.DowntimeWindow{Title: "Test1"})
+	serv, mock := setup(types.DowntimeWindow{Title: "Test1"})
 
 	time1, _ := time.Parse(time.RFC3339, "2020-01-01T00:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-02-02T00:00:00Z")
@@ -59,7 +59,7 @@ func TestBasicAuthSucceeds(t *testing.T) {
 }
 
 func TestBasicAuthFailsIfNotSet(t *testing.T) {
-	serv, _ := setup(&types.DowntimeWindow{Title: "Test1"})
+	serv, _ := setup(types.DowntimeWindow{Title: "Test1"})
 
 	req := httptest.NewRequest(http.MethodGet, "/downtime?from=2020-01-01T00:00:00Z&to=2020-02-02T00:00:00Z", nil)
 	req.SetBasicAuth("admin", "pasfdasdfass")
@@ -76,7 +76,7 @@ func TestBasicAuthFailsIfNotSet(t *testing.T) {
 }
 
 func TestBasicAuthFailsIfInvalidCredentials(t *testing.T) {
-	serv, _ := setup(&types.DowntimeWindow{Title: "Test1"})
+	serv, _ := setup(types.DowntimeWindow{Title: "Test1"})
 
 	req := httptest.NewRequest(http.MethodGet, "/downtime?from=2020-01-01T00:00:00Z&to=2020-02-02T00:00:00Z", nil)
 	w := httptest.NewRecorder()

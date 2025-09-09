@@ -16,13 +16,11 @@ type downtimeServer struct {
 }
 
 type DowntimeStore interface {
-	InitializeDB() error
-	CloseDB() error
-	StoreNewWindow(*types.DowntimeWindow) (*types.DowntimeWindow, error)
-	ListWindows(from time.Time, to time.Time) ([]*types.DowntimeWindow, error)
-	ListWindowsMatchingClusterFacts(ctx context.Context, from time.Time, to time.Time, clusterId string) ([]*types.DowntimeWindow, error)
-	UpdateWindow(*types.DowntimeWindow) (*types.DowntimeWindow, error)
-	PatchWindow(*types.DowntimeWindow) (*types.DowntimeWindow, error)
+	StoreNewWindow(types.DowntimeWindow) (types.DowntimeWindow, error)
+	ListWindows(from time.Time, to time.Time) ([]types.DowntimeWindow, error)
+	ListWindowsMatchingClusterFacts(ctx context.Context, from time.Time, to time.Time, clusterId string) ([]types.DowntimeWindow, error)
+	UpdateWindow(types.DowntimeWindow) (types.DowntimeWindow, error)
+	PatchWindow(types.DowntimeWindow) (types.DowntimeWindow, error)
 }
 
 func (s *downtimeServer) ListDowntime(w http.ResponseWriter, r *http.Request) {
@@ -90,7 +88,7 @@ func (s *downtimeServer) CreateDowntime(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	ws, err := s.store.StoreNewWindow(&window)
+	ws, err := s.store.StoreNewWindow(window)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -113,7 +111,7 @@ func (s *downtimeServer) UpdateDowntime(w http.ResponseWriter, r *http.Request) 
 
 	window.ID = r.PathValue("id")
 
-	ws, err := s.store.UpdateWindow(&window)
+	ws, err := s.store.UpdateWindow(window)
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error: Could not update downtime window (%s)", err.Error()), http.StatusBadRequest)
@@ -135,7 +133,7 @@ func (s *downtimeServer) PatchDowntime(w http.ResponseWriter, r *http.Request) {
 
 	window.ID = r.PathValue("id")
 
-	ws, err := s.store.PatchWindow(&window)
+	ws, err := s.store.PatchWindow(window)
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error: Could not patch downtime window (%s)", err.Error()), http.StatusBadRequest)
