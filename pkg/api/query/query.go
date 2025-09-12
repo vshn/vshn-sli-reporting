@@ -2,17 +2,17 @@ package query
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/perses/promql-builder/label"
 	"github.com/perses/promql-builder/vector"
 	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
+	"github.com/vshn/vshn-sli-reporting/pkg/api/handler"
 	"github.com/vshn/vshn-sli-reporting/pkg/types"
 )
 
@@ -31,23 +31,22 @@ type queryServer struct {
 	prom   PrometheusQuerier
 }
 
-func (s *queryServer) QueryCluster(w http.ResponseWriter, r *http.Request) {
+func (s *queryServer) QueryCluster(r *http.Request) (any, error) {
 	ctx := r.Context()
+	l := logr.FromContextOrDiscard(ctx)
 
 	clusterID := r.PathValue("clusterid")
 
 	from := r.URL.Query().Get("from")
 	fromT, err := time.Parse(time.RFC3339, from)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error: Could not parse `from` time (%s)", err.Error()), http.StatusBadRequest)
-		return
+		return nil, fmt.Errorf("could not parse `from` time: %w", err)
 	}
 	fromT = fromT.Truncate(time.Hour)
 	to := r.URL.Query().Get("to")
 	toT, err := time.Parse(time.RFC3339, to)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error: Could not parse `to` time (%s)", err.Error()), http.StatusBadRequest)
-		return
+		return nil, fmt.Errorf("could not parse `to` time: %w", err)
 	}
 	toT = toT.Truncate(time.Hour)
 
@@ -58,14 +57,12 @@ func (s *queryServer) QueryCluster(w http.ResponseWriter, r *http.Request) {
 
 	downtimes, err := s.lister.ListWindowsMatchingClusterFacts(ctx, fromT, toT, clusterID)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error: Could not list downtimes (%s)", err.Error()), http.StatusInternalServerError)
-		return
+		return nil, fmt.Errorf("could not list downtimes: %w", err)
 	}
 
 	hours := int(toT.Sub(fromT).Hours())
 	if hours <= 0 {
-		http.Error(w, "`to` must be at least 1 hour after `from`", http.StatusBadRequest)
-		return
+		return nil, fmt.Errorf("`to` must be at least 1 hour after `from`")
 	}
 
 	rawSamples, _, err := s.prom.QueryRange(
@@ -82,13 +79,11 @@ func (s *queryServer) QueryCluster(w http.ResponseWriter, r *http.Request) {
 			Step:  time.Hour,
 		})
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error: Could not query Prometheus (%s)", err.Error()), http.StatusInternalServerError)
-		return
+		return nil, fmt.Errorf("could not query Prometheus: %w", err)
 	}
 	samples, ok := rawSamples.(model.Matrix)
 	if !ok {
-		http.Error(w, fmt.Sprintf("Error: Unexpected result type from Prometheus (expected model.Matrix, got %T)", rawSamples), http.StatusInternalServerError)
-		return
+		return nil, fmt.Errorf("unexpected result type from Prometheus (expected model.Matrix, got %T)", rawSamples)
 	}
 
 	rawObjective, _, err := s.prom.Query(
@@ -100,19 +95,17 @@ func (s *queryServer) QueryCluster(w http.ResponseWriter, r *http.Request) {
 				label.New("sloth_service").EqualRegexp(filter),
 			)).String(), toT)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error: Could not query Prometheus for objective (%s)", err.Error()), http.StatusInternalServerError)
-		return
+		return nil, fmt.Errorf("could not query Prometheus for objective: %w", err)
 	}
 	objectives, ok := rawObjective.(model.Vector)
 	if !ok {
-		http.Error(w, fmt.Sprintf("Error: Unexpected result type from Prometheus for objective (expected model.Vector, got %T)", rawObjective), http.StatusInternalServerError)
-		return
+		return nil, fmt.Errorf("unexpected result type from Prometheus for objective (expected model.Vector, got %T)", rawObjective)
 	}
 	objectiveMap := make(map[string]float64)
 	for _, sample := range objectives {
 		name := string(sample.Metric["sloth_service"])
 		if name == "" {
-			fmt.Println("Warning: Found objective sample without sloth_service label, skipping", sample.Metric)
+			l.Info("Found objective sample without sloth_service label, skipping", "metric", sample.Metric)
 			continue
 		}
 		objectiveMap[name] = float64(sample.Value)
@@ -126,7 +119,7 @@ func (s *queryServer) QueryCluster(w http.ResponseWriter, r *http.Request) {
 	for _, sample := range samples {
 		name := string(sample.Metric["sloth_service"])
 		if name == "" {
-			fmt.Println("Warning: Found sample without sloth_service label, skipping", sample.Metric)
+			l.Info("Found sample without sloth_service label, skipping", "metric", sample.Metric)
 			continue
 		}
 		d := response.SLIData[name]
@@ -148,7 +141,7 @@ func (s *queryServer) QueryCluster(w http.ResponseWriter, r *http.Request) {
 	for name, d := range response.SLIData {
 		obj, ok := objectiveMap[name]
 		if !ok {
-			fmt.Println("Warning: Could not find objective for service", name)
+			l.Info("Warning: Could not find objective for service", "service", name)
 			continue
 		}
 		d.Objective = obj
@@ -162,8 +155,7 @@ func (s *queryServer) QueryCluster(w http.ResponseWriter, r *http.Request) {
 		response.SLIData[name] = d
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	return response, nil
 }
 
 type QueryClusterResponse struct {
@@ -201,8 +193,7 @@ type SLIDataPoint struct {
 
 func Setup(mux *http.ServeMux, lister DowntimeLister, prom PrometheusQuerier) {
 	s := queryServer{lister: lister, prom: prom}
-	log.Println("Registering endpoints")
-	mux.HandleFunc("GET /query/cluster/{clusterid}", s.QueryCluster)
+	mux.Handle("GET /query/cluster/{clusterid}", handler.JSONFunc(s.QueryCluster))
 }
 
 // as Prometheus looks back in time from T the window is matched as such: (windows.start, windows.end]

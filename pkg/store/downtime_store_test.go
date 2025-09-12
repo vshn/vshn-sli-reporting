@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"log"
 	"testing"
 	"time"
 
@@ -18,20 +17,24 @@ func (m *mockLieutenant) GetClusterFacts(ctx context.Context, clusterID string) 
 	return m.ReturnVal, nil
 }
 
-func setup() *downtimeStore {
+func setup(t *testing.T) *downtimeStore {
+	t.Helper()
+
 	time.Local = time.UTC
 	store, err := NewDowntimeStore(":memory:", &mockLieutenant{})
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 	return store
 }
 
-func setupAndSeed(facts map[string]string) *downtimeStore {
+func setupAndSeed(t *testing.T, facts map[string]string) *downtimeStore {
+	t.Helper()
+
 	time.Local = time.UTC
 	store, err := NewDowntimeStore(":memory:", &mockLieutenant{ReturnVal: facts})
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 	time1, _ := time.Parse(time.RFC3339, "2020-01-01T00:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-01-02T00:00:00Z")
@@ -104,7 +107,7 @@ func setupAndSeed(facts map[string]string) *downtimeStore {
 }
 
 func TestInitializeDB(t *testing.T) {
-	store := setup()
+	store := setup(t)
 	err := store.InitializeDB()
 	assert.NoError(t, err)
 
@@ -118,7 +121,7 @@ func TestListWindowsInTimeFrame(t *testing.T) {
 	time1, _ := time.Parse(time.RFC3339, "2020-01-02T12:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-01-04T12:00:00Z")
 
-	store := setupAndSeed(map[string]string{})
+	store := setupAndSeed(t, map[string]string{})
 
 	windows, err := store.ListWindows(time1, time2)
 	assert.NoError(t, err)
@@ -139,7 +142,7 @@ func TestListWindowsStoreError(t *testing.T) {
 	time1, _ := time.Parse(time.RFC3339, "2020-01-02T12:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-01-04T12:00:00Z")
 
-	store := setup()
+	store := setup(t)
 
 	_, err := store.ListWindows(time1, time2)
 	assert.Error(t, err)
@@ -150,7 +153,7 @@ func TestListWindowsForCluster(t *testing.T) {
 	time1, _ := time.Parse(time.RFC3339, "2019-12-02T12:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-02-04T12:00:00Z")
 
-	store := setupAndSeed(map[string]string{"foo": "bar"})
+	store := setupAndSeed(t, map[string]string{"foo": "bar"})
 
 	windows, err := store.ListWindowsMatchingClusterFacts(context.TODO(), time1, time2, "unused")
 	assert.NoError(t, err)
@@ -167,7 +170,7 @@ func TestListWindowsForCluster(t *testing.T) {
 }
 
 func TestStoreNewWindow(t *testing.T) {
-	store := setup()
+	store := setup(t)
 	time1, _ := time.Parse(time.RFC3339, "2020-01-01T00:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-01-02T00:00:00Z")
 	store.InitializeDB()
@@ -194,7 +197,7 @@ func TestStoreNewWindow(t *testing.T) {
 }
 
 func TestStoreNewWindowInvalid(t *testing.T) {
-	store := setup()
+	store := setup(t)
 	time1, _ := time.Parse(time.RFC3339, "2020-01-01T00:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-01-02T00:00:00Z")
 	store.InitializeDB()
@@ -226,7 +229,7 @@ func TestStoreNewWindowInvalid(t *testing.T) {
 }
 
 func TestStoreNewWindowWithSameExtId(t *testing.T) {
-	store := setup()
+	store := setup(t)
 	time1, _ := time.Parse(time.RFC3339, "2020-01-01T00:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-01-02T00:00:00Z")
 	store.InitializeDB()
@@ -261,7 +264,7 @@ func TestStoreNewWindowWithSameExtId(t *testing.T) {
 }
 
 func TestUpdateWindow(t *testing.T) {
-	store := setup()
+	store := setup(t)
 	time1, _ := time.Parse(time.RFC3339, "2020-01-01T00:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-01-02T00:00:00Z")
 	store.InitializeDB()
@@ -296,7 +299,7 @@ func TestUpdateWindow(t *testing.T) {
 }
 
 func TestUpdateFailsWithExtIdConflict(t *testing.T) {
-	store := setup()
+	store := setup(t)
 	time1, _ := time.Parse(time.RFC3339, "2020-01-01T00:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-01-02T00:00:00Z")
 	store.InitializeDB()
@@ -327,7 +330,7 @@ func TestUpdateFailsWithExtIdConflict(t *testing.T) {
 }
 
 func TestPatchWindow(t *testing.T) {
-	store := setup()
+	store := setup(t)
 	time1, _ := time.Parse(time.RFC3339, "2020-01-01T00:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-01-02T00:00:00Z")
 	store.InitializeDB()

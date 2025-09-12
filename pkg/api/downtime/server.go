@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
+	"github.com/vshn/vshn-sli-reporting/pkg/api/handler"
 	"github.com/vshn/vshn-sli-reporting/pkg/types"
 )
 
@@ -23,34 +23,28 @@ type DowntimeStore interface {
 	PatchWindow(types.DowntimeWindow) (types.DowntimeWindow, error)
 }
 
-func (s *downtimeServer) ListDowntime(w http.ResponseWriter, r *http.Request) {
+func (s *downtimeServer) ListDowntime(r *http.Request) (any, error) {
 	from := r.URL.Query().Get("from")
 	to := r.URL.Query().Get("to")
 
 	ft, err := time.Parse(time.RFC3339, from)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error: Could not parse `from` time (%s)", err.Error()), http.StatusBadRequest)
-		return
+		return nil, handler.NewErrWithCode(fmt.Errorf("could not parse `from` time: %w", err), http.StatusBadRequest)
 	}
 	tt, err := time.Parse(time.RFC3339, to)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error: Could not parse `to` time (%s)", err.Error()), http.StatusBadRequest)
-		return
+		return nil, handler.NewErrWithCode(fmt.Errorf("could not parse `to` time: %w", err), http.StatusBadRequest)
 	}
 
 	ws, err := s.store.ListWindows(ft, tt)
-
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error: Could not list downtime windows (%s)", err.Error()), http.StatusBadRequest)
-		return
+		return nil, handler.NewErrWithCode(fmt.Errorf("could not list downtime windows: %w", err), http.StatusBadRequest)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(ws)
+	return ws, nil
 }
 
-func (s *downtimeServer) ListDowntimeForCluster(w http.ResponseWriter, r *http.Request) {
+func (s *downtimeServer) ListDowntimeForCluster(r *http.Request) (any, error) {
 	clusterId := r.PathValue("clusterid")
 
 	from := r.URL.Query().Get("from")
@@ -58,99 +52,75 @@ func (s *downtimeServer) ListDowntimeForCluster(w http.ResponseWriter, r *http.R
 
 	ft, err := time.Parse(time.RFC3339, from)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error: Could not parse `from` time (%s)", err.Error()), http.StatusBadRequest)
-		return
+		return nil, handler.NewErrWithCode(fmt.Errorf("could not parse `from` time: %w", err), http.StatusBadRequest)
 	}
 	tt, err := time.Parse(time.RFC3339, to)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error: Could not parse `to` time (%s)", err.Error()), http.StatusBadRequest)
-		return
+		return nil, handler.NewErrWithCode(fmt.Errorf("could not parse `to` time: %w", err), http.StatusBadRequest)
 	}
 
 	ws, err := s.store.ListWindowsMatchingClusterFacts(r.Context(), ft, tt, clusterId)
 
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error: Could not list downtime windows (%s)", err.Error()), http.StatusBadRequest)
-		return
+		return nil, handler.NewErrWithCode(fmt.Errorf("could not list downtime windows: %w", err), http.StatusBadRequest)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(ws)
-
+	return ws, nil
 }
 
-func (s *downtimeServer) CreateDowntime(w http.ResponseWriter, r *http.Request) {
+func (s *downtimeServer) CreateDowntime(r *http.Request) (any, error) {
 	window := types.DowntimeWindow{}
 	err := json.NewDecoder(r.Body).Decode(&window)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error: Invalid downtime window (%s)", err.Error()), http.StatusBadRequest)
-		return
+		return nil, handler.NewErrWithCode(fmt.Errorf("invalid downtime window: %w", err), http.StatusBadRequest)
 	}
 
 	ws, err := s.store.StoreNewWindow(window)
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		http.Error(w, fmt.Sprintf("Error: Could not store downtime window (%s)", err.Error()), http.StatusBadRequest)
-		return
+		return nil, handler.NewErrWithCode(fmt.Errorf("could not store downtime window: %w", err), http.StatusBadRequest)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(ws)
+	return handler.ResponseWithCode{Data: ws, Code: http.StatusCreated}, nil
 }
 
-func (s *downtimeServer) UpdateDowntime(w http.ResponseWriter, r *http.Request) {
+func (s *downtimeServer) UpdateDowntime(r *http.Request) (any, error) {
 	window := types.DowntimeWindow{}
 	err := json.NewDecoder(r.Body).Decode(&window)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error: Invalid downtime window (%s)", err.Error()), http.StatusBadRequest)
-		return
+		return nil, handler.NewErrWithCode(fmt.Errorf("invalid downtime window: %w", err), http.StatusBadRequest)
 	}
 
 	window.ID = r.PathValue("id")
-
 	ws, err := s.store.UpdateWindow(window)
-
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error: Could not update downtime window (%s)", err.Error()), http.StatusBadRequest)
-		return
+		return nil, handler.NewErrWithCode(fmt.Errorf("could not update downtime window: %w", err), http.StatusBadRequest)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(ws)
+	return ws, nil
 }
 
-func (s *downtimeServer) PatchDowntime(w http.ResponseWriter, r *http.Request) {
+func (s *downtimeServer) PatchDowntime(r *http.Request) (any, error) {
 	window := types.DowntimeWindow{}
 	err := json.NewDecoder(r.Body).Decode(&window)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error: Invalid downtime window (%s)", err.Error()), http.StatusBadRequest)
-		return
+		return nil, handler.NewErrWithCode(fmt.Errorf("invalid downtime window: %w", err), http.StatusBadRequest)
 	}
 
 	window.ID = r.PathValue("id")
-
 	ws, err := s.store.PatchWindow(window)
-
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Error: Could not patch downtime window (%s)", err.Error()), http.StatusBadRequest)
-		return
+		return nil, handler.NewErrWithCode(fmt.Errorf("could not patch downtime window: %w", err), http.StatusBadRequest)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(ws)
+	return ws, nil
 }
 
 func Setup(mux *http.ServeMux, store DowntimeStore) {
 	s := downtimeServer{store}
-	log.Println("Registering endpoints")
-	mux.HandleFunc("GET /downtime", s.ListDowntime)
-	mux.HandleFunc("GET /downtime/cluster/{clusterid}", s.ListDowntimeForCluster)
-	mux.HandleFunc("POST /downtime", s.CreateDowntime)
-	mux.HandleFunc("POST /downtime/{id}", s.UpdateDowntime)
-	mux.HandleFunc("PATCH /downtime/{id}", s.PatchDowntime)
+	mux.Handle("GET /downtime", handler.JSONFunc(s.ListDowntime))
+	mux.Handle("GET /downtime/cluster/{clusterid}", handler.JSONFunc(s.ListDowntimeForCluster))
+	mux.Handle("POST /downtime", handler.JSONFunc(s.CreateDowntime))
+	mux.Handle("POST /downtime/{id}", handler.JSONFunc(s.UpdateDowntime))
+	mux.Handle("PATCH /downtime/{id}", handler.JSONFunc(s.PatchDowntime))
 }

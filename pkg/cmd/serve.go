@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-logr/stdr"
 	prometheusapi "github.com/prometheus/client_golang/api"
 	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/spf13/cobra"
@@ -61,6 +62,9 @@ var (
 				log.Fatal(err)
 				return
 			}
+
+			l := stdr.New(log.New(os.Stderr, "", log.LstdFlags|log.Lshortfile))
+			serverConfig.Logger = &l
 
 			var server = api.NewApiServer(serverConfig, store, prometheusv1.NewAPI(promClient))
 			log.Println("Starting API server ...")

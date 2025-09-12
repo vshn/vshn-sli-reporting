@@ -13,11 +13,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/logr/testr"
 	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"k8s.io/utils/ptr"
 
 	"github.com/vshn/vshn-sli-reporting/pkg/store/mock"
 	"github.com/vshn/vshn-sli-reporting/pkg/types"
@@ -43,18 +44,18 @@ func TestQueryWithDowntime(t *testing.T) {
 		[]types.DowntimeWindow{
 			{
 				Title:     "Test1",
-				StartTime: ptr.To(from.Add(6 * time.Hour)),
-				EndTime:   ptr.To(from.Add((6 + 6) * time.Hour)),
+				StartTime: ptrTo(from.Add(6 * time.Hour)),
+				EndTime:   ptrTo(from.Add((6 + 6) * time.Hour)),
 			},
 			{
 				Title:     "Test2",
-				StartTime: ptr.To(from.Add(9 * time.Hour)),
-				EndTime:   ptr.To(from.Add((9 + 6) * time.Hour)),
+				StartTime: ptrTo(from.Add(9 * time.Hour)),
+				EndTime:   ptrTo(from.Add((9 + 6) * time.Hour)),
 			},
 			{
 				Title:     "Test3",
-				StartTime: ptr.To(from.Add(20 * time.Hour)),
-				EndTime:   ptr.To(from.Add((20 + 1) * time.Hour)),
+				StartTime: ptrTo(from.Add(20 * time.Hour)),
+				EndTime:   ptrTo(from.Add((20 + 1) * time.Hour)),
 			},
 		}, staticPrometheusQuerierResponse{
 			value: model.Vector{
@@ -82,7 +83,9 @@ func TestQueryWithDowntime(t *testing.T) {
 			),
 		})
 
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/query/cluster/blub?from=%s&to=%s", from.Format(time.RFC3339), to.Format(time.RFC3339)), nil)
+	req := httptest.
+		NewRequest(http.MethodGet, fmt.Sprintf("/query/cluster/blub?from=%s&to=%s", from.Format(time.RFC3339), to.Format(time.RFC3339)), nil).
+		WithContext(logr.NewContext(t.Context(), testr.New(t)))
 	w := httptest.NewRecorder()
 
 	mux.ServeHTTP(w, req)
@@ -223,4 +226,8 @@ func sloErrorMetric(slothService string) model.Metric {
 		"__name__":      "slo:sli_error:ratio_rate1h",
 		"sloth_service": model.LabelValue(slothService),
 	}
+}
+
+func ptrTo[T any](v T) *T {
+	return &v
 }
