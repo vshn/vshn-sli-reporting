@@ -32,11 +32,8 @@ build-bin: fmt vet ## Build binary
 build-docker: build-bin ## Build docker image
 	$(DOCKER_CMD) build -t $(CONTAINER_IMG) .
 
-.PHONY: ensure-prometheus
-ensure-prometheus: .cache/prometheus ## Ensures that Prometheus is installed in the project dir. Downloads it if necessary.
-
 .PHONY: test
-test: ensure-prometheus
+test:
 	go test ./... -tags integration -coverprofile cover.out -covermode atomic
 
 .PHONY: fmt
@@ -60,15 +57,3 @@ generate: ## Generate additional code and artifacts
 .PHONY: clean
 clean:
 	rm -rf docs/node_modules $(docs_out_dir) dist .cache
-
-.cache/prometheus:
-	mkdir -p .cache
-	curl -fsSLo .cache/prometheus.tar.gz $(PROMETHEUS_DOWNLOAD_LINK)
-	tar -xzf .cache/prometheus.tar.gz -C .cache
-	mv .cache/prometheus-$(PROMETHEUS_VERSION).$(PROMETHEUS_DIST)-$(PROMETHEUS_ARCH) .cache/prometheus
-	rm -rf .cache/*.tar.gz
-
-# current date in UTC in ISO 8601 format (RFC 3339) with Z as timezone that works on both linux and macos
-.PHONY: current-date
-current-date:
-	date -u +"%Y-%m-%dT%H:%M:%SZ"
