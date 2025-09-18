@@ -3,21 +3,32 @@ package cmd
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/go-logr/stdr"
+	prometheusapi "github.com/prometheus/client_golang/api"
+	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/spf13/cobra"
+
 	"github.com/vshn/vshn-sli-reporting/pkg/api"
 	"github.com/vshn/vshn-sli-reporting/pkg/lieutenant"
 	"github.com/vshn/vshn-sli-reporting/pkg/store"
 )
 
+type prometheusConfig struct {
+	URL     string
+	Headers map[string]string
+}
+
 var (
 	serverCommandName = "serve"
 	serverConfig      = api.ApiServerConfig{}
 	lieutenantConfig  = lieutenant.Config{}
+	promConfig        = prometheusConfig{Headers: map[string]string{}}
 	dbPath            string
 	serveCmd          = &cobra.Command{
 		Use:   serverCommandName,
@@ -35,7 +46,27 @@ var (
 				return
 			}
 			defer store.CloseDB()
-			var server = api.NewApiServer(serverConfig, store)
+
+			rt := http.DefaultTransport
+			if len(promConfig.Headers) > 0 {
+				rt = headerInjector{
+					headers: promConfig.Headers,
+				}
+			}
+
+			promClient, err := prometheusapi.NewClient(prometheusapi.Config{
+				Address:      promConfig.URL,
+				RoundTripper: rt,
+			})
+			if err != nil {
+				log.Fatal(err)
+				return
+			}
+
+			l := stdr.New(log.New(os.Stderr, "", log.LstdFlags|log.Lshortfile))
+			serverConfig.Logger = &l
+
+			var server = api.NewApiServer(serverConfig, store, prometheusv1.NewAPI(promClient))
 			log.Println("Starting API server ...")
 
 			go func() {
@@ -62,15 +93,29 @@ var (
 	}
 )
 
+type headerInjector struct {
+	headers map[string]string
+}
+
+func (h headerInjector) RoundTrip(req *http.Request) (*http.Response, error) {
+	r2 := req.Clone(req.Context())
+	for key, value := range h.headers {
+		r2.Header.Set(key, value)
+	}
+	return http.DefaultTransport.RoundTrip(r2)
+}
+
 func init() {
 	serveCmd.Flags().StringVar(&serverConfig.AuthUser, "auth-user", "admin", "Username for authenticating with the API")
 	serveCmd.Flags().StringVar(&serverConfig.AuthPass, "auth-pass", "", "Password for authenticating with the API")
 	serveCmd.Flags().StringVar(&dbPath, "db-file", "./data.db", "Path of the SQLite DB file")
 	serveCmd.Flags().IntVar(&serverConfig.Port, "port", 8080, "Port at which to serve API")
 	serveCmd.Flags().StringVar(&serverConfig.Host, "host", "0.0.0.0", "Host address to bind")
-	serveCmd.Flags().StringVar(&lieutenantConfig.Host, "lieutenant-k8s-url", "0.0.0.0", "URL of Lieutenant Kubernetes API")
+	serveCmd.Flags().StringVar(&lieutenantConfig.Host, "lieutenant-k8s-url", "https://localhost:6443", "URL of Lieutenant Kubernetes API")
 	serveCmd.Flags().StringVar(&lieutenantConfig.Token, "lieutenant-sa-token", "", "Service Account token of Lieutenant Kubernetes API")
 	serveCmd.Flags().StringVar(&lieutenantConfig.Namespace, "lieutenant-namespace", "lieutenant", "Namespace in which Clusters are stored in Lieutenant")
+	serveCmd.Flags().StringVar(&promConfig.URL, "prometheus-url", "http://localhost:9090", "URL of the Prometheus API")
+	serveCmd.Flags().StringToStringVar(&promConfig.Headers, "prometheus-headers", nil, "Headers to include when connecting to Prometheus")
 
 	rootCmd.AddCommand(serveCmd)
 }

@@ -1,15 +1,19 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/vshn/vshn-sli-reporting/pkg/store/mock"
 	"github.com/vshn/vshn-sli-reporting/pkg/types"
+
+	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 )
 
 var config = ApiServerConfig{
@@ -19,17 +23,17 @@ var config = ApiServerConfig{
 	Host:     "localhost",
 }
 
-func setup(rv *types.DowntimeWindow) (*ApiServer, *mock.MockDowntimeStore) {
+func setup(rv types.DowntimeWindow) (*ApiServer, *mock.MockDowntimeStore) {
 	store := &mock.MockDowntimeStore{
-		ReturnValue: rv,
+		ReturnValues: []types.DowntimeWindow{rv},
 	}
 
-	server := NewApiServer(config, store)
+	server := NewApiServer(config, store, noopPrometheus{})
 	return &server, store
 }
 
 func TestBasicAuthSucceeds(t *testing.T) {
-	serv, mock := setup(&types.DowntimeWindow{Title: "Test1"})
+	serv, mock := setup(types.DowntimeWindow{Title: "Test1"})
 
 	time1, _ := time.Parse(time.RFC3339, "2020-01-01T00:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-02-02T00:00:00Z")
@@ -59,7 +63,7 @@ func TestBasicAuthSucceeds(t *testing.T) {
 }
 
 func TestBasicAuthFailsIfNotSet(t *testing.T) {
-	serv, _ := setup(&types.DowntimeWindow{Title: "Test1"})
+	serv, _ := setup(types.DowntimeWindow{Title: "Test1"})
 
 	req := httptest.NewRequest(http.MethodGet, "/downtime?from=2020-01-01T00:00:00Z&to=2020-02-02T00:00:00Z", nil)
 	req.SetBasicAuth("admin", "pasfdasdfass")
@@ -76,7 +80,7 @@ func TestBasicAuthFailsIfNotSet(t *testing.T) {
 }
 
 func TestBasicAuthFailsIfInvalidCredentials(t *testing.T) {
-	serv, _ := setup(&types.DowntimeWindow{Title: "Test1"})
+	serv, _ := setup(types.DowntimeWindow{Title: "Test1"})
 
 	req := httptest.NewRequest(http.MethodGet, "/downtime?from=2020-01-01T00:00:00Z&to=2020-02-02T00:00:00Z", nil)
 	w := httptest.NewRecorder()
@@ -89,4 +93,14 @@ func TestBasicAuthFailsIfInvalidCredentials(t *testing.T) {
 	defer res.Body.Close()
 
 	assert.Equal(t, "401 Unauthorized", res.Status)
+}
+
+type noopPrometheus struct{}
+
+func (m noopPrometheus) Query(ctx context.Context, query string, ts time.Time, opts ...prometheusv1.Option) (model.Value, prometheusv1.Warnings, error) {
+	return model.Vector{}, nil, nil
+}
+
+func (m noopPrometheus) QueryRange(ctx context.Context, query string, r prometheusv1.Range, opts ...prometheusv1.Option) (model.Value, prometheusv1.Warnings, error) {
+	return model.Matrix{}, nil, nil
 }

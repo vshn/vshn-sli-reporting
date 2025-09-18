@@ -70,43 +70,43 @@ func (s *downtimeStore) CloseDB() error {
 	return s.db.Close()
 }
 
-func (s *downtimeStore) StoreNewWindow(w *types.DowntimeWindow) (*types.DowntimeWindow, error) {
+func (s *downtimeStore) StoreNewWindow(w types.DowntimeWindow) (types.DowntimeWindow, error) {
 	q := `INSERT INTO downtime (id, start_time, end_time, title, description, external_id, external_link, affects) VALUES (:id, :start_time, :end_time, :title, :description, :external_id, :external_link, :affects)`
 	st, err := convertToDbStruct(w)
 
 	if err != nil {
-		return nil, fmt.Errorf("unable to convert downtime window for store: %w", err)
+		return types.DowntimeWindow{}, fmt.Errorf("unable to convert downtime window for store: %w", err)
 	}
 
 	err = s.validate(&st)
 	if err != nil {
-		return nil, fmt.Errorf("invalid downtime window: %w", err)
+		return types.DowntimeWindow{}, fmt.Errorf("invalid downtime window: %w", err)
 	}
 
 	existing_id, err := s.idFromExternalID(st.ExternalID)
 	if err != nil {
-		return nil, fmt.Errorf("error while validating external ID: %w", err)
+		return types.DowntimeWindow{}, fmt.Errorf("error while validating external ID: %w", err)
 	}
 
 	if len(existing_id) > 0 && existing_id != st.ID {
 		st.ID = existing_id
-		return s.updateWindow(&st)
+		return s.updateWindow(st)
 	}
 
 	_, err = s.db.NamedExec(q, st)
 	if err != nil {
-		return nil, fmt.Errorf("unable to store downtime window: %w", err)
+		return types.DowntimeWindow{}, fmt.Errorf("unable to store downtime window: %w", err)
 	}
 
-	rv, err := convertFromDbStruct(&st)
+	rv, err := convertFromDbStruct(st)
 	if err != nil {
-		return nil, fmt.Errorf("unable to convert store result: %w", err)
+		return types.DowntimeWindow{}, fmt.Errorf("unable to convert store result: %w", err)
 	}
 
 	return rv, nil
 }
 
-func (s *downtimeStore) ListWindows(from time.Time, to time.Time) ([]*types.DowntimeWindow, error) {
+func (s *downtimeStore) ListWindows(from time.Time, to time.Time) ([]types.DowntimeWindow, error) {
 	fromUnix := from.Unix()
 	toUnix := to.Unix()
 
@@ -114,31 +114,31 @@ func (s *downtimeStore) ListWindows(from time.Time, to time.Time) ([]*types.Down
 
 	err := s.db.Select(&results, "SELECT * FROM downtime WHERE (end_time > ? OR end_time <= 0) AND start_time < ?", fromUnix, toUnix)
 	if err != nil {
-		return []*types.DowntimeWindow{}, fmt.Errorf("error while querying downtime windows: %w", err)
+		return nil, fmt.Errorf("error while querying downtime windows: %w", err)
 	}
 
-	converted := make([]*types.DowntimeWindow, len(results))
+	converted := make([]types.DowntimeWindow, len(results))
 	for i, r := range results {
-		c, err := convertFromDbStruct(&r)
+		c, err := convertFromDbStruct(r)
 		if err != nil {
-			return []*types.DowntimeWindow{}, fmt.Errorf("error while converting downtime window list: %w", err)
+			return nil, fmt.Errorf("error while converting downtime window list: %w", err)
 		}
 		converted[i] = c
 	}
 	return converted, nil
 }
 
-func (s *downtimeStore) ListWindowsMatchingClusterFacts(ctx context.Context, from time.Time, to time.Time, clusterId string) ([]*types.DowntimeWindow, error) {
+func (s *downtimeStore) ListWindowsMatchingClusterFacts(ctx context.Context, from time.Time, to time.Time, clusterId string) ([]types.DowntimeWindow, error) {
 	facts, err := s.lieutenant.GetClusterFacts(ctx, clusterId)
 	if err != nil {
-		return nil, fmt.Errorf("could not list downtime windows matching cluster facts: %w", err)
+		return nil, fmt.Errorf("unable to get facts for cluster %q: %w", clusterId, err)
 	}
 	windows, err := s.ListWindows(from, to)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to list downtime windows (%s - %s): %w", from, to, err)
 	}
 
-	matchedWindows := make([]*types.DowntimeWindow, 0)
+	matchedWindows := make([]types.DowntimeWindow, 0)
 
 	for _, w := range windows {
 		if windowMatchesClusterFacts(w, facts) {
@@ -149,7 +149,7 @@ func (s *downtimeStore) ListWindowsMatchingClusterFacts(ctx context.Context, fro
 	return matchedWindows, nil
 }
 
-func windowMatchesClusterFacts(w *types.DowntimeWindow, facts map[string]string) bool {
+func windowMatchesClusterFacts(w types.DowntimeWindow, facts map[string]string) bool {
 	for _, a := range w.Affects {
 		matches := true
 		for k, v := range a {
@@ -164,54 +164,54 @@ func windowMatchesClusterFacts(w *types.DowntimeWindow, facts map[string]string)
 	return false
 }
 
-func (s *downtimeStore) UpdateWindow(w *types.DowntimeWindow) (*types.DowntimeWindow, error) {
+func (s *downtimeStore) UpdateWindow(w types.DowntimeWindow) (types.DowntimeWindow, error) {
 	st, err := convertToDbStruct(w)
 	if err != nil {
-		return nil, fmt.Errorf("unable to convert downtime window for store: %w", err)
+		return types.DowntimeWindow{}, fmt.Errorf("unable to convert downtime window for store: %w", err)
 	}
 
 	err = s.validate(&st)
 	if err != nil {
-		return nil, fmt.Errorf("invalid downtime window: %w", err)
+		return types.DowntimeWindow{}, fmt.Errorf("invalid downtime window: %w", err)
 	}
 
 	existing_id, err := s.idFromExternalID(st.ExternalID)
 	if err != nil {
-		return nil, fmt.Errorf("error while validating external ID: %w", err)
+		return types.DowntimeWindow{}, fmt.Errorf("error while validating external ID: %w", err)
 	}
 
 	if len(existing_id) > 0 && existing_id != st.ID {
-		return nil, errors.New("could not update downtime window: external ID conflicts with existing record")
+		return types.DowntimeWindow{}, errors.New("could not update downtime window: external ID conflicts with existing record")
 	}
 
-	return s.updateWindow(&st)
+	return s.updateWindow(st)
 }
 
-func (s *downtimeStore) PatchWindow(w *types.DowntimeWindow) (*types.DowntimeWindow, error) {
+func (s *downtimeStore) PatchWindow(w types.DowntimeWindow) (types.DowntimeWindow, error) {
 	existing, err := s.getWindowById(w.ID)
 	if err != nil {
-		return nil, fmt.Errorf("unable to find existing record for patch: %w", err)
+		return types.DowntimeWindow{}, fmt.Errorf("unable to find existing record for patch: %w", err)
 	}
 	st, err := updateDbStruct(existing, w)
 	if err != nil {
-		return nil, fmt.Errorf("unable to convert downtime window for patch: %w", err)
+		return types.DowntimeWindow{}, fmt.Errorf("unable to convert downtime window for patch: %w", err)
 	}
 
 	err = s.validate(&st)
 	if err != nil {
-		return nil, fmt.Errorf("invalid downtime window: %w", err)
+		return types.DowntimeWindow{}, fmt.Errorf("invalid downtime window: %w", err)
 	}
 
 	existing_id, err := s.idFromExternalID(st.ExternalID)
 	if err != nil {
-		return nil, fmt.Errorf("error while validating external ID: %w", err)
+		return types.DowntimeWindow{}, fmt.Errorf("error while validating external ID: %w", err)
 	}
 
 	if len(existing_id) > 0 && existing_id != st.ID {
-		return nil, errors.New("could not patch downtime window: external ID conflicts with existing record")
+		return types.DowntimeWindow{}, errors.New("could not patch downtime window: external ID conflicts with existing record")
 	}
 
-	return s.updateWindow(&st)
+	return s.updateWindow(st)
 }
 
 func (s *downtimeStore) validate(w *dbDowntimeWindow) error {
@@ -224,16 +224,16 @@ func (s *downtimeStore) validate(w *dbDowntimeWindow) error {
 	return nil
 }
 
-func (s *downtimeStore) updateWindow(w *dbDowntimeWindow) (*types.DowntimeWindow, error) {
+func (s *downtimeStore) updateWindow(w dbDowntimeWindow) (types.DowntimeWindow, error) {
 	q := `UPDATE downtime SET id = :id, start_time = :start_time,  end_time = :end_time, title = :title, description = :description, external_id = :external_id, external_link = :external_link, affects = :affects WHERE id == :id`
 	_, err := s.db.NamedExec(q, w)
 	if err != nil {
-		return nil, fmt.Errorf("unable to update downtime window: %w", err)
+		return types.DowntimeWindow{}, fmt.Errorf("unable to update downtime window: %w", err)
 	}
 
 	rv, err := convertFromDbStruct(w)
 	if err != nil {
-		return nil, fmt.Errorf("unable to convert update result: %w", err)
+		return types.DowntimeWindow{}, fmt.Errorf("unable to convert update result: %w", err)
 	}
 
 	return rv, nil
@@ -266,7 +266,7 @@ func (s *downtimeStore) idFromExternalID(externalID string) (string, error) {
 	return "", nil
 }
 
-func convertToDbStruct(w *types.DowntimeWindow) (dbDowntimeWindow, error) {
+func convertToDbStruct(w types.DowntimeWindow) (dbDowntimeWindow, error) {
 	affects, err := json.Marshal(w.Affects)
 	if err != nil {
 		return dbDowntimeWindow{}, fmt.Errorf("could not convert downtime window: %w", err)
@@ -294,11 +294,11 @@ func convertToDbStruct(w *types.DowntimeWindow) (dbDowntimeWindow, error) {
 	return nw, nil
 }
 
-func convertFromDbStruct(w *dbDowntimeWindow) (*types.DowntimeWindow, error) {
+func convertFromDbStruct(w dbDowntimeWindow) (types.DowntimeWindow, error) {
 	affects := []types.AffectedClusterMatcher{}
 	err := json.Unmarshal([]byte(w.Affects), &affects)
 	if err != nil {
-		return nil, fmt.Errorf("could not convert downtime window: %w", err)
+		return types.DowntimeWindow{}, fmt.Errorf("could not convert downtime window: %w", err)
 	}
 	st, en := time.Unix(w.StartTime, 0).UTC(), time.Unix(w.EndTime, 0).UTC()
 	nw := types.DowntimeWindow{
@@ -317,10 +317,10 @@ func convertFromDbStruct(w *dbDowntimeWindow) (*types.DowntimeWindow, error) {
 		nw.EndTime = &en
 	}
 
-	return &nw, nil
+	return nw, nil
 }
 
-func updateDbStruct(e dbDowntimeWindow, w *types.DowntimeWindow) (dbDowntimeWindow, error) {
+func updateDbStruct(e dbDowntimeWindow, w types.DowntimeWindow) (dbDowntimeWindow, error) {
 	if e.ID != w.ID {
 		return dbDowntimeWindow{}, errors.New("cannot patch record: ID mismatch")
 	}

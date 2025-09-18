@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"log"
 	"testing"
 	"time"
 
@@ -18,20 +17,24 @@ func (m *mockLieutenant) GetClusterFacts(ctx context.Context, clusterID string) 
 	return m.ReturnVal, nil
 }
 
-func setup() *downtimeStore {
+func setup(t *testing.T) *downtimeStore {
+	t.Helper()
+
 	time.Local = time.UTC
 	store, err := NewDowntimeStore(":memory:", &mockLieutenant{})
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 	return store
 }
 
-func setupAndSeed(facts map[string]string) *downtimeStore {
+func setupAndSeed(t *testing.T, facts map[string]string) *downtimeStore {
+	t.Helper()
+
 	time.Local = time.UTC
 	store, err := NewDowntimeStore(":memory:", &mockLieutenant{ReturnVal: facts})
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 	time1, _ := time.Parse(time.RFC3339, "2020-01-01T00:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-01-02T00:00:00Z")
@@ -40,19 +43,19 @@ func setupAndSeed(facts map[string]string) *downtimeStore {
 	time5, _ := time.Parse(time.RFC3339, "2020-01-05T00:00:00Z")
 	time6, _ := time.Parse(time.RFC3339, "2020-01-06T00:00:00Z")
 	store.InitializeDB()
-	store.StoreNewWindow(&types.DowntimeWindow{
+	store.StoreNewWindow(types.DowntimeWindow{
 		StartTime: &time1,
 		EndTime:   &time2,
 		Title:     "Test1",
 		Affects:   []types.AffectedClusterMatcher{}, // matches nothing
 	})
-	store.StoreNewWindow(&types.DowntimeWindow{
+	store.StoreNewWindow(types.DowntimeWindow{
 		StartTime: &time2,
 		EndTime:   &time3,
 		Title:     "Test2",
 		Affects:   []types.AffectedClusterMatcher{types.AffectedClusterMatcher{}}, // matches all
 	})
-	store.StoreNewWindow(&types.DowntimeWindow{
+	store.StoreNewWindow(types.DowntimeWindow{
 		StartTime: &time3,
 		EndTime:   &time4,
 		Title:     "Test3",
@@ -60,7 +63,7 @@ func setupAndSeed(facts map[string]string) *downtimeStore {
 			map[string]string{"foo": "bar"},
 		},
 	})
-	store.StoreNewWindow(&types.DowntimeWindow{
+	store.StoreNewWindow(types.DowntimeWindow{
 		StartTime: &time4,
 		EndTime:   &time5,
 		Title:     "Test4",
@@ -71,7 +74,7 @@ func setupAndSeed(facts map[string]string) *downtimeStore {
 			},
 		},
 	})
-	store.StoreNewWindow(&types.DowntimeWindow{
+	store.StoreNewWindow(types.DowntimeWindow{
 		StartTime: &time5,
 		EndTime:   &time6,
 		Title:     "Test5",
@@ -84,7 +87,7 @@ func setupAndSeed(facts map[string]string) *downtimeStore {
 			},
 		},
 	})
-	store.StoreNewWindow(&types.DowntimeWindow{
+	store.StoreNewWindow(types.DowntimeWindow{
 		StartTime: &time1,
 		// No end time
 		Title: "Test6",
@@ -104,7 +107,7 @@ func setupAndSeed(facts map[string]string) *downtimeStore {
 }
 
 func TestInitializeDB(t *testing.T) {
-	store := setup()
+	store := setup(t)
 	err := store.InitializeDB()
 	assert.NoError(t, err)
 
@@ -118,7 +121,7 @@ func TestListWindowsInTimeFrame(t *testing.T) {
 	time1, _ := time.Parse(time.RFC3339, "2020-01-02T12:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-01-04T12:00:00Z")
 
-	store := setupAndSeed(map[string]string{})
+	store := setupAndSeed(t, map[string]string{})
 
 	windows, err := store.ListWindows(time1, time2)
 	assert.NoError(t, err)
@@ -139,7 +142,7 @@ func TestListWindowsStoreError(t *testing.T) {
 	time1, _ := time.Parse(time.RFC3339, "2020-01-02T12:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-01-04T12:00:00Z")
 
-	store := setup()
+	store := setup(t)
 
 	_, err := store.ListWindows(time1, time2)
 	assert.Error(t, err)
@@ -150,7 +153,7 @@ func TestListWindowsForCluster(t *testing.T) {
 	time1, _ := time.Parse(time.RFC3339, "2019-12-02T12:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-02-04T12:00:00Z")
 
-	store := setupAndSeed(map[string]string{"foo": "bar"})
+	store := setupAndSeed(t, map[string]string{"foo": "bar"})
 
 	windows, err := store.ListWindowsMatchingClusterFacts(context.TODO(), time1, time2, "unused")
 	assert.NoError(t, err)
@@ -167,11 +170,11 @@ func TestListWindowsForCluster(t *testing.T) {
 }
 
 func TestStoreNewWindow(t *testing.T) {
-	store := setup()
+	store := setup(t)
 	time1, _ := time.Parse(time.RFC3339, "2020-01-01T00:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-01-02T00:00:00Z")
 	store.InitializeDB()
-	w, err := store.StoreNewWindow(&types.DowntimeWindow{
+	w, err := store.StoreNewWindow(types.DowntimeWindow{
 		StartTime:    &time1,
 		EndTime:      &time2,
 		Title:        "Test1",
@@ -194,11 +197,11 @@ func TestStoreNewWindow(t *testing.T) {
 }
 
 func TestStoreNewWindowInvalid(t *testing.T) {
-	store := setup()
+	store := setup(t)
 	time1, _ := time.Parse(time.RFC3339, "2020-01-01T00:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-01-02T00:00:00Z")
 	store.InitializeDB()
-	_, err := store.StoreNewWindow(&types.DowntimeWindow{
+	_, err := store.StoreNewWindow(types.DowntimeWindow{
 		// start time after end time
 		StartTime:    &time2,
 		EndTime:      &time1,
@@ -211,7 +214,7 @@ func TestStoreNewWindowInvalid(t *testing.T) {
 
 	assert.Error(t, err)
 
-	_, err = store.StoreNewWindow(&types.DowntimeWindow{
+	_, err = store.StoreNewWindow(types.DowntimeWindow{
 		// no start time
 		EndTime:      &time1,
 		Title:        "Test1",
@@ -226,11 +229,11 @@ func TestStoreNewWindowInvalid(t *testing.T) {
 }
 
 func TestStoreNewWindowWithSameExtId(t *testing.T) {
-	store := setup()
+	store := setup(t)
 	time1, _ := time.Parse(time.RFC3339, "2020-01-01T00:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-01-02T00:00:00Z")
 	store.InitializeDB()
-	w, err := store.StoreNewWindow(&types.DowntimeWindow{
+	w, err := store.StoreNewWindow(types.DowntimeWindow{
 		StartTime:  &time1,
 		Title:      "Test1",
 		ExternalID: "a",
@@ -240,7 +243,7 @@ func TestStoreNewWindowWithSameExtId(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, w.ID)
 
-	w2, err := store.StoreNewWindow(&types.DowntimeWindow{
+	w2, err := store.StoreNewWindow(types.DowntimeWindow{
 		StartTime:  &time1,
 		EndTime:    &time2,
 		Title:      "Test1",
@@ -261,11 +264,11 @@ func TestStoreNewWindowWithSameExtId(t *testing.T) {
 }
 
 func TestUpdateWindow(t *testing.T) {
-	store := setup()
+	store := setup(t)
 	time1, _ := time.Parse(time.RFC3339, "2020-01-01T00:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-01-02T00:00:00Z")
 	store.InitializeDB()
-	w, err := store.StoreNewWindow(&types.DowntimeWindow{
+	w, err := store.StoreNewWindow(types.DowntimeWindow{
 		StartTime:  &time1,
 		Title:      "Test1",
 		ExternalID: "a",
@@ -275,7 +278,7 @@ func TestUpdateWindow(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, w.ID)
 
-	w2, err := store.UpdateWindow(&types.DowntimeWindow{
+	w2, err := store.UpdateWindow(types.DowntimeWindow{
 		ID:          w.ID,
 		StartTime:   &time1,
 		EndTime:     &time2,
@@ -296,18 +299,18 @@ func TestUpdateWindow(t *testing.T) {
 }
 
 func TestUpdateFailsWithExtIdConflict(t *testing.T) {
-	store := setup()
+	store := setup(t)
 	time1, _ := time.Parse(time.RFC3339, "2020-01-01T00:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-01-02T00:00:00Z")
 	store.InitializeDB()
-	_, err := store.StoreNewWindow(&types.DowntimeWindow{
+	_, err := store.StoreNewWindow(types.DowntimeWindow{
 		StartTime:  &time1,
 		Title:      "Test1",
 		ExternalID: "a",
 		Affects:    []types.AffectedClusterMatcher{},
 	})
 	assert.NoError(t, err)
-	w, err := store.StoreNewWindow(&types.DowntimeWindow{
+	w, err := store.StoreNewWindow(types.DowntimeWindow{
 		StartTime:  &time1,
 		Title:      "Test2",
 		ExternalID: "b",
@@ -316,7 +319,7 @@ func TestUpdateFailsWithExtIdConflict(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	_, err = store.UpdateWindow(&types.DowntimeWindow{
+	_, err = store.UpdateWindow(types.DowntimeWindow{
 		ID:         w.ID,
 		StartTime:  &time1,
 		EndTime:    &time2,
@@ -327,11 +330,11 @@ func TestUpdateFailsWithExtIdConflict(t *testing.T) {
 }
 
 func TestPatchWindow(t *testing.T) {
-	store := setup()
+	store := setup(t)
 	time1, _ := time.Parse(time.RFC3339, "2020-01-01T00:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-01-02T00:00:00Z")
 	store.InitializeDB()
-	w, err := store.StoreNewWindow(&types.DowntimeWindow{
+	w, err := store.StoreNewWindow(types.DowntimeWindow{
 		StartTime:   &time1,
 		EndTime:     &time2,
 		Title:       "Test1",
@@ -342,7 +345,7 @@ func TestPatchWindow(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, w.ID)
 
-	w2, err := store.PatchWindow(&types.DowntimeWindow{
+	w2, err := store.PatchWindow(types.DowntimeWindow{
 		ID:         w.ID,
 		Title:      "TestX",
 		ExternalID: "a",
