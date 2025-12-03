@@ -17,6 +17,8 @@ import (
 	"github.com/vshn/vshn-sli-reporting/pkg/types"
 )
 
+const SLOTH_ID_LABEL = "sloth_id"
+
 type DowntimeLister interface {
 	ListWindows(from time.Time, to time.Time) ([]types.DowntimeWindow, error)
 	ListWindowsMatchingClusterFacts(ctx context.Context, from time.Time, to time.Time, clusterId string) ([]types.DowntimeWindow, error)
@@ -72,7 +74,7 @@ func (s *queryServer) QueryCluster(r *http.Request) (any, error) {
 			vector.WithMetricName("slo:sli_error:ratio_rate1h"),
 			vector.WithLabelMatchers(
 				label.New("cluster_id").Equal(clusterID),
-				label.New("sloth_service").EqualRegexp(filter),
+				label.New(SLOTH_ID_LABEL).EqualRegexp(filter),
 			)).String(),
 		prometheusv1.Range{
 			Start: fromT,
@@ -93,7 +95,7 @@ func (s *queryServer) QueryCluster(r *http.Request) (any, error) {
 			vector.WithMetricName("slo:objective:ratio"),
 			vector.WithLabelMatchers(
 				label.New("cluster_id").Equal(clusterID),
-				label.New("sloth_service").EqualRegexp(filter),
+				label.New(SLOTH_ID_LABEL).EqualRegexp(filter),
 			)).String(), toT)
 	if err != nil {
 		return nil, fmt.Errorf("could not query Prometheus for objective: %w", err)
@@ -104,9 +106,9 @@ func (s *queryServer) QueryCluster(r *http.Request) (any, error) {
 	}
 	objectiveMap := make(map[string]float64)
 	for _, sample := range objectives {
-		name := string(sample.Metric["sloth_service"])
+		name := string(sample.Metric[SLOTH_ID_LABEL])
 		if name == "" {
-			l.Info("Found objective sample without sloth_service label, skipping", "metric", sample.Metric)
+			l.Info("Found objective sample without sloth_id label, skipping", "metric", sample.Metric)
 			continue
 		}
 		objectiveMap[name] = float64(sample.Value)
@@ -118,9 +120,9 @@ func (s *queryServer) QueryCluster(r *http.Request) (any, error) {
 	}
 
 	for _, sample := range samples {
-		name := string(sample.Metric["sloth_service"])
+		name := string(sample.Metric[SLOTH_ID_LABEL])
 		if name == "" {
-			l.Info("Found sample without sloth_service label, skipping", "metric", sample.Metric)
+			l.Info("Found sample without sloth_id label, skipping", "metric", sample.Metric)
 			continue
 		}
 		d := response.SLIData[name]
