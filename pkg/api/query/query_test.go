@@ -75,11 +75,20 @@ func TestQueryWithDowntime(t *testing.T) {
 					Value:     0.98,
 					Timestamp: model.TimeFromUnixNano(to.UnixNano()),
 				},
+				&model.Sample{
+					Metric: model.Metric{
+						"__name__":      "slo:objective:ratio",
+						"sloth_service": "nan",
+					},
+					Value:     0.98,
+					Timestamp: model.TimeFromUnixNano(to.UnixNano()),
+				},
 			},
 		}, staticPrometheusQuerierResponse{
 			value: promMatrix(
 				promSampleStream(t, sloErrorMetric("full"), mustTimeFromRFC3339(t, "2020-01-01T00:00:00Z"), "24x1"),
 				promSampleStream(t, sloErrorMetric("empty"), mustTimeFromRFC3339(t, "2020-01-01T00:00:00Z"), ""),
+				promSampleStream(t, sloErrorMetric("nan"), mustTimeFromRFC3339(t, "2020-01-01T00:00:00Z"), "24xNaN"),
 			),
 		})
 
@@ -118,6 +127,14 @@ func TestQueryWithDowntime(t *testing.T) {
 	assert.Equal(t, 0.0, serviceEmptyDowntime.ErrorRateWindow)
 	assert.InDelta(t, 0.02, serviceEmptyDowntime.ErrorBudgetWindow, 0.001)
 	assert.Equal(t, 1.0, serviceEmptyDowntime.ErrorBudgetWindowPercentage)
+
+	serviceNanDowntime := queryResponse.SLIData["nan"]
+	assert.Equal(t, explodeValues(t, "24x0"), collectErrorRate(serviceNanDowntime.DataPoints))
+	assert.Equal(t, explodeValues(t, "24x0"), collectRealErrorRate(serviceNanDowntime.DataPoints))
+	assert.Equal(t, 0.98, serviceNanDowntime.Objective)
+	assert.Equal(t, 0.0, serviceNanDowntime.ErrorRateWindow)
+	assert.InDelta(t, 0.02, serviceNanDowntime.ErrorBudgetWindow, 0.001)
+	assert.Equal(t, 1.0, serviceNanDowntime.ErrorBudgetWindowPercentage)
 }
 
 func calculateComparisonAverages(rates []float64) []float64 {
