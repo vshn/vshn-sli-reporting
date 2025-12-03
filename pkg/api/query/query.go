@@ -123,16 +123,19 @@ func (s *queryServer) QueryCluster(r *http.Request) (any, error) {
 			continue
 		}
 		d := response.SLIData[name]
+		cumulative_sum := 0.0
+
 		for _, pair := range sample.Values {
 			val := float64(pair.Value)
 			if timeMatchesDowntimeWindow(pair.Timestamp.Time(), downtimes) {
 				val = 0
 			}
-
+			cumulative_sum = cumulative_sum + val
 			d.DataPoints = append(d.DataPoints, SLIDataPoint{
-				Timestamp:       pair.Timestamp.Time(),
-				ErrorRate1h:     val,
-				RealErrorRate1h: float64(pair.Value),
+				Timestamp:                  pair.Timestamp.Time(),
+				ErrorRate1h:                val,
+				RealErrorRate1h:            float64(pair.Value),
+				CumulativeAverageErrorRate: cumulative_sum / float64(hours),
 			})
 		}
 		response.SLIData[name] = d
@@ -189,6 +192,8 @@ type SLIDataPoint struct {
 	ErrorRate1h float64 `json:"error_rate_1h"`
 	// RealErrorRate1h is the raw error rate for the past hour as reported by Prometheus.
 	RealErrorRate1h float64 `json:"real_error_rate_1h"`
+	// CumulativeAverageErrorRate is the cumulative error rate since the beginning of the time window, averaged over the number of hours in the time window. It is calculated as: (sum of `error_rate_1h` up until including now) / (total number of hours in the entire timeframe)
+	CumulativeAverageErrorRate float64 `json:"cumulative_average_error_rate"`
 }
 
 func Setup(mux *http.ServeMux, lister DowntimeLister, prom PrometheusQuerier) {

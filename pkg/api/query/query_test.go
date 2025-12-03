@@ -103,6 +103,7 @@ func TestQueryWithDowntime(t *testing.T) {
 	serviceFullDowntime := queryResponse.SLIData["full"]
 	assert.Equal(t, explodeValues(t, "6x1 9x0 5x1 0 3x1"), collectErrorRate(serviceFullDowntime.DataPoints), "from is exclusive, to is inclusive")
 	assert.Equal(t, explodeValues(t, "24x1"), collectRealErrorRate(serviceFullDowntime.DataPoints))
+	assert.Equal(t, calculateComparisonAverages(explodeValues(t, "6x1 9x0 5x1 0 3x1")), collectCumulativeAverageErrorRate(serviceFullDowntime.DataPoints))
 	assert.Equal(t, 0.98, serviceFullDowntime.Objective)
 	// (6+5+3) / 744 hours (window width) = 0.0188
 	assert.InDelta(t, 0.0188, serviceFullDowntime.ErrorRateWindow, 0.0001)
@@ -119,6 +120,17 @@ func TestQueryWithDowntime(t *testing.T) {
 	assert.Equal(t, 1.0, serviceEmptyDowntime.ErrorBudgetWindowPercentage)
 }
 
+func calculateComparisonAverages(rates []float64) []float64 {
+	hrs := 24 * 31 // hours in test timeframe
+	cum := 0.0
+	result := make([]float64, len(rates))
+	for i := range rates {
+		cum = cum + rates[i]
+		result[i] = cum / float64(hrs)
+	}
+	return result
+}
+
 func collectErrorRate(dp []SLIDataPoint) []float64 {
 	values := make([]float64, len(dp))
 	for i := range dp {
@@ -130,6 +142,13 @@ func collectRealErrorRate(dp []SLIDataPoint) []float64 {
 	values := make([]float64, len(dp))
 	for i := range dp {
 		values[i] = dp[i].RealErrorRate1h
+	}
+	return values
+}
+func collectCumulativeAverageErrorRate(dp []SLIDataPoint) []float64 {
+	values := make([]float64, len(dp))
+	for i := range dp {
+		values[i] = dp[i].CumulativeAverageErrorRate
 	}
 	return values
 }
