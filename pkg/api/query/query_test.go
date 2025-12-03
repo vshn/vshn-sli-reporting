@@ -61,24 +61,24 @@ func TestQueryWithDowntime(t *testing.T) {
 			value: model.Vector{
 				&model.Sample{
 					Metric: model.Metric{
-						"__name__":      "slo:objective:ratio",
-						"sloth_service": "full",
+						"__name__": "slo:objective:ratio",
+						"sloth_id": "full",
 					},
 					Value:     0.98,
 					Timestamp: model.TimeFromUnixNano(to.UnixNano()),
 				},
 				&model.Sample{
 					Metric: model.Metric{
-						"__name__":      "slo:objective:ratio",
-						"sloth_service": "empty",
+						"__name__": "slo:objective:ratio",
+						"sloth_id": "empty",
 					},
 					Value:     0.98,
 					Timestamp: model.TimeFromUnixNano(to.UnixNano()),
 				},
 				&model.Sample{
 					Metric: model.Metric{
-						"__name__":      "slo:objective:ratio",
-						"sloth_service": "nan",
+						"__name__": "slo:objective:ratio",
+						"sloth_id": "nan",
 					},
 					Value:     0.98,
 					Timestamp: model.TimeFromUnixNano(to.UnixNano()),
@@ -259,8 +259,8 @@ func mustTimeFromRFC3339(t *testing.T, s string) time.Time {
 
 func sloErrorMetric(slothService string) model.Metric {
 	return model.Metric{
-		"__name__":      "slo:sli_error:ratio_rate1h",
-		"sloth_service": model.LabelValue(slothService),
+		"__name__": "slo:sli_error:ratio_rate1h",
+		"sloth_id": model.LabelValue(slothService),
 	}
 }
 
