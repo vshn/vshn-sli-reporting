@@ -161,8 +161,8 @@ func (s *queryServer) QueryCluster(r *http.Request) (any, error) {
 			sum += dp.ErrorRate1h
 		}
 		d.ErrorRateWindow = sum / float64(hours)
-		d.ErrorBudgetWindow = 1.0 - d.Objective - d.ErrorRateWindow
-		d.ErrorBudgetWindowPercentage = d.ErrorBudgetWindow / (1.0 - d.Objective)
+		d.ErrorBudgetRemainingWindow = 1.0 - d.Objective - d.ErrorRateWindow
+		d.ErrorBudgetRemainingWindowPercentage = d.ErrorBudgetRemainingWindow / (1.0 - d.Objective)
 		response.SLIData[name] = d
 	}
 
@@ -181,14 +181,14 @@ type QueryClusterResponseSLIData struct {
 	// ErrorRateWindow is the average error rate over the entire window.
 	// Null time points are treated as 0 error rate.
 	ErrorRateWindow float64 `json:"error_rate_window"`
-	// ErrorBudgetWindow is the remaining error budget over the entire window.
+	// ErrorBudgetRemainingWindow is the remaining error budget over the entire window.
 	// It is calculated as (1 - objective) - ErrorRateWindow.
 	// It can be negative if the error rate exceeded the objective.
-	ErrorBudgetWindow float64 `json:"error_budget_window"`
-	// ErrorBudgetWindowPercentage is the percentage of the error budget remaining calculated over the entire window.
+	ErrorBudgetRemainingWindow float64 `json:"error_budget_remaining_window"`
+	// ErrorBudgetRemainingWindowPercentage is the percentage of the error budget remaining calculated over the entire window.
 	// It is calculated as ErrorBudgetWindow / (1 - objective).
 	// It can be negative if the error rate exceeded the objective.
-	ErrorBudgetWindowPercentage float64 `json:"error_budget_window_percent"`
+	ErrorBudgetRemainingWindowPercentage float64 `json:"error_budget_remaining_window_percent"`
 	// DataPoints contains the error rate for each hour in the window.
 	DataPoints []SLIDataPoint `json:"data_points"`
 }

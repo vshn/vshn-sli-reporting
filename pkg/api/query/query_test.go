@@ -117,24 +117,24 @@ func TestQueryWithDowntime(t *testing.T) {
 	// (6+5+3) / 744 hours (window width) = 0.0188
 	assert.InDelta(t, 0.0188, serviceFullDowntime.ErrorRateWindow, 0.0001)
 	// 98% objective allows 2% error budget, minus 1.88% used ~ 0.0012 remaining
-	assert.InDelta(t, 0.0012, serviceFullDowntime.ErrorBudgetWindow, 0.0001)
-	assert.InDelta(t, 0.059, serviceFullDowntime.ErrorBudgetWindowPercentage, 0.001)
+	assert.InDelta(t, 0.0012, serviceFullDowntime.ErrorBudgetRemainingWindow, 0.0001)
+	assert.InDelta(t, 0.059, serviceFullDowntime.ErrorBudgetRemainingWindowPercentage, 0.001)
 
 	serviceEmptyDowntime := queryResponse.SLIData["empty"]
 	assert.Equal(t, []float64{}, collectErrorRate(serviceEmptyDowntime.DataPoints))
 	assert.Equal(t, []float64{}, collectRealErrorRate(serviceEmptyDowntime.DataPoints))
 	assert.Equal(t, 0.98, serviceEmptyDowntime.Objective)
 	assert.Equal(t, 0.0, serviceEmptyDowntime.ErrorRateWindow)
-	assert.InDelta(t, 0.02, serviceEmptyDowntime.ErrorBudgetWindow, 0.001)
-	assert.Equal(t, 1.0, serviceEmptyDowntime.ErrorBudgetWindowPercentage)
+	assert.InDelta(t, 0.02, serviceEmptyDowntime.ErrorBudgetRemainingWindow, 0.001)
+	assert.Equal(t, 1.0, serviceEmptyDowntime.ErrorBudgetRemainingWindowPercentage)
 
 	serviceNanDowntime := queryResponse.SLIData["nan"]
 	assert.Equal(t, explodeValues(t, "24x0"), collectErrorRate(serviceNanDowntime.DataPoints))
 	assert.Equal(t, explodeValues(t, "24x0"), collectRealErrorRate(serviceNanDowntime.DataPoints))
 	assert.Equal(t, 0.98, serviceNanDowntime.Objective)
 	assert.Equal(t, 0.0, serviceNanDowntime.ErrorRateWindow)
-	assert.InDelta(t, 0.02, serviceNanDowntime.ErrorBudgetWindow, 0.001)
-	assert.Equal(t, 1.0, serviceNanDowntime.ErrorBudgetWindowPercentage)
+	assert.InDelta(t, 0.02, serviceNanDowntime.ErrorBudgetRemainingWindow, 0.001)
+	assert.Equal(t, 1.0, serviceNanDowntime.ErrorBudgetRemainingWindowPercentage)
 }
 
 func calculateComparisonAverages(rates []float64) []float64 {
